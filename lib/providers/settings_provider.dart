@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:receipto/services/secure_storage_service.dart';
 
 /// Manages AI provider settings and API key state.
 ///
-/// Stub implementation for now — fully implemented in Step 6
-/// when SecureStorageService is created.
+/// The API key is persisted in encrypted secure storage on-device.
+/// The selected AI provider (gemini/openai) is also persisted.
 class SettingsProvider extends ChangeNotifier {
   String? _apiKey;
   String _aiProvider = 'gemini';
@@ -12,30 +13,37 @@ class SettingsProvider extends ChangeNotifier {
   String get aiProvider => _aiProvider;
   bool get hasApiKey => _apiKey != null && _apiKey!.isNotEmpty;
 
-  /// Loads settings from secure storage. Fully implemented in Step 6.
+  /// Loads settings from secure storage. Call once at app startup.
   Future<void> loadSettings() async {
-    // TODO: Load from SecureStorageService
+    _apiKey = await SecureStorageService.read(SecureStorageService.keyApiKey);
+    _aiProvider = await SecureStorageService.read(
+          SecureStorageService.keyAiProvider,
+        ) ??
+        'gemini';
     notifyListeners();
   }
 
-  /// Saves the API key. Fully implemented in Step 6.
+  /// Saves the API key to secure storage.
   Future<void> setApiKey(String key) async {
     _apiKey = key;
-    // TODO: Persist to SecureStorageService
+    await SecureStorageService.write(SecureStorageService.keyApiKey, key);
     notifyListeners();
   }
 
-  /// Switches the AI provider (gemini or openai).
+  /// Switches the AI provider (gemini or openai) and persists the choice.
   Future<void> setAiProvider(String provider) async {
     _aiProvider = provider;
-    // TODO: Persist to SecureStorageService
+    await SecureStorageService.write(
+      SecureStorageService.keyAiProvider,
+      provider,
+    );
     notifyListeners();
   }
 
-  /// Clears the stored API key.
+  /// Clears the stored API key from secure storage.
   Future<void> clearApiKey() async {
     _apiKey = null;
-    // TODO: Delete from SecureStorageService
+    await SecureStorageService.delete(SecureStorageService.keyApiKey);
     notifyListeners();
   }
 }

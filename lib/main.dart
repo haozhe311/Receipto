@@ -5,6 +5,7 @@ import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/home_screen.dart';
+import 'package:receipto/screens/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,7 +48,7 @@ class _AppShellState extends State<AppShell> {
     const HomeScreen(),
     const _PlaceholderScreen(title: 'AI Chat', icon: Icons.smart_toy),
     const _PlaceholderScreen(title: 'Backup', icon: Icons.cloud_upload),
-    const _PlaceholderScreen(title: 'Settings', icon: Icons.settings),
+    const SettingsScreen(),
   ];
 
   @override
