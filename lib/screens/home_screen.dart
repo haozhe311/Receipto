@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
+import 'package:receipto/screens/ocr_scan_screen.dart';
 import 'package:receipto/widgets/category_chip.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/summary_card.dart';
@@ -21,9 +22,10 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.camera_alt),
             tooltip: 'Scan Receipt',
-            onPressed: () {
-              // TODO: Navigate to OCR scan screen (Step 5)
-            },
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OcrScanScreen()),
+            ),
           ),
         ],
       ),
