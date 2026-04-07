@@ -4,6 +4,7 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
+import 'package:receipto/screens/chatbot_screen.dart';
 import 'package:receipto/screens/home_screen.dart';
 import 'package:receipto/screens/settings_screen.dart';
 
@@ -46,7 +47,7 @@ class _AppShellState extends State<AppShell> {
   // Tab screens — placeholder widgets for screens built in later steps.
   final List<Widget> _screens = [
     const HomeScreen(),
-    const _PlaceholderScreen(title: 'AI Chat', icon: Icons.smart_toy),
+    const ChatbotScreen(),
     const _PlaceholderScreen(title: 'Backup', icon: Icons.cloud_upload),
     const SettingsScreen(),
   ];
