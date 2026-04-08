@@ -26,7 +26,7 @@ class ReceiptoApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: AppConstants.appName,
-        theme: AppTheme.lightTheme,
+        theme: AppTheme.darkTheme,
         debugShowCheckedModeBanner: false,
         home: const AppShell(),
       ),
@@ -76,7 +76,13 @@ class _AppShellState extends State<AppShell> {
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: AppTheme.border, width: 1),
+          ),
+        ),
+        child: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
@@ -103,6 +109,7 @@ class _AppShellState extends State<AppShell> {
             label: 'Settings',
           ),
         ],
+        ),
       ),
     );
   }

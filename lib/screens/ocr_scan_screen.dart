@@ -11,7 +11,14 @@ import 'package:receipto/widgets/category_chip.dart';
 /// Screen that captures a receipt image, runs OCR, and lets the user
 /// review/correct the parsed data before saving.
 class OcrScanScreen extends StatefulWidget {
-  const OcrScanScreen({super.key});
+  /// The image source to open immediately on launch.
+  /// Defaults to [ImageSource.camera].
+  final ImageSource initialSource;
+
+  const OcrScanScreen({
+    super.key,
+    this.initialSource = ImageSource.camera,
+  });
 
   @override
   State<OcrScanScreen> createState() => _OcrScanScreenState();
@@ -31,12 +38,13 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
   String _rawText = '';
   bool _isProcessing = false;
   bool _hasScanned = false;
+  ReceiptData? _receiptData;
 
   @override
   void initState() {
     super.initState();
-    // Launch camera immediately on screen open
-    Future.microtask(() => _captureImage(ImageSource.camera));
+    // Launch the selected source immediately on screen open
+    Future.microtask(() => _captureImage(widget.initialSource));
   }
 
   @override
@@ -68,6 +76,7 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
       final receiptData = await _ocrService.processReceipt(pickedFile.path);
 
       setState(() {
+        _receiptData = receiptData;
         _rawText = receiptData.rawText;
         _hasScanned = true;
         _isProcessing = false;
@@ -197,7 +206,9 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          if (_hasScanned && _receiptData != null)
+            _ConfidenceBadge(_receiptData!.amountConfidence),
+          const SizedBox(height: 12),
 
           // Merchant field
           TextFormField(
@@ -214,7 +225,9 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          if (_hasScanned && _receiptData != null)
+            _ConfidenceBadge(_receiptData!.merchantConfidence),
+          const SizedBox(height: 12),
 
           // Date picker
           InkWell(
@@ -231,6 +244,8 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
               ),
             ),
           ),
+          if (_hasScanned && _receiptData != null)
+            _ConfidenceBadge(_receiptData!.dateConfidence),
           const SizedBox(height: 16),
 
           // Category selector
@@ -342,5 +357,51 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
       );
       Navigator.of(context).pop();
     }
+  }
+}
+
+/// A small coloured indicator shown below each OCR-parsed form field.
+///
+/// - Green  (high)  — matched by a specific keyword (TOTAL, GRAND TOTAL, etc.)
+/// - Orange (low)   — estimated via fallback heuristic; user should verify
+/// - Red    (none)  — field could not be extracted; user must fill it in
+class _ConfidenceBadge extends StatelessWidget {
+  final OcrConfidence confidence;
+
+  const _ConfidenceBadge(this.confidence);
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, Color color, String label) = switch (confidence) {
+      OcrConfidence.high => (
+          Icons.check_circle,
+          Colors.green,
+          'Auto-detected — looks good',
+        ),
+      OcrConfidence.low => (
+          Icons.warning_amber,
+          Colors.orange,
+          'Estimated — please verify',
+        ),
+      OcrConfidence.none => (
+          Icons.error_outline,
+          Colors.red,
+          'Not detected — fill in manually',
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: 4, bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: color),
+          ),
+        ],
+      ),
+    );
   }
 }

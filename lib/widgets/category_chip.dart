@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/theme.dart';
 
 /// A selectable chip representing a transaction category.
 ///
@@ -24,25 +25,39 @@ class CategoryChip extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected ? Colors.white : color,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.goldDark : AppTheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? AppTheme.gold : AppTheme.border,
+              width: isSelected ? 1.5 : 1,
             ),
-            const SizedBox(width: 4),
-            Text(category),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? AppTheme.gold : color,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                category,
+                style: TextStyle(
+                  color: isSelected ? AppTheme.gold : AppTheme.textMuted,
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
-        selected: isSelected,
-        selectedColor: color,
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : null,
-        ),
-        onSelected: (_) => onTap(),
       ),
     );
   }

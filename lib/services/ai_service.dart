@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// Service for calling AI chat APIs (Google Gemini or OpenAI).
+/// Service for calling AI chat APIs (Google Gemini, OpenAI, or Groq).
 ///
 /// Uses BYOK (Bring Your Own Key) — the user's API key is passed in
 /// on each call. Constructs a grounded system prompt using the
@@ -11,16 +11,19 @@ class AiService {
   AiService._();
 
   static const String _geminiEndpoint =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
   static const String _openAiEndpoint =
       'https://api.openai.com/v1/chat/completions';
+  // Groq uses the OpenAI-compatible Chat Completions format.
+  static const String _groqEndpoint =
+      'https://api.groq.com/openai/v1/chat/completions';
 
   /// Sends a chat message to the selected AI provider and returns the response.
   ///
   /// [userMessage] is the natural language query from the user.
   /// [transactionContext] is a JSON-encoded array of recent transactions.
   /// [apiKey] is the user's BYOK key.
-  /// [provider] must be either 'gemini' or 'openai'.
+  /// [provider] must be 'gemini', 'openai', or 'groq'.
   static Future<String> chat({
     required String userMessage,
     required String transactionContext,
@@ -36,10 +39,22 @@ class AiService {
         apiKey: apiKey,
       );
     } else if (provider == 'openai') {
-      return _callOpenAi(
+      return _callOpenAiCompatible(
+        endpoint: _openAiEndpoint,
+        model: 'gpt-4o-mini',
         systemPrompt: systemPrompt,
         userMessage: userMessage,
         apiKey: apiKey,
+        providerName: 'OpenAI',
+      );
+    } else if (provider == 'groq') {
+      return _callOpenAiCompatible(
+        endpoint: _groqEndpoint,
+        model: 'llama-3.1-8b-instant',
+        systemPrompt: systemPrompt,
+        userMessage: userMessage,
+        apiKey: apiKey,
+        providerName: 'Groq',
       );
     } else {
       throw ArgumentError('Unknown AI provider: $provider');
@@ -83,6 +98,7 @@ Instructions:
     final body = jsonEncode({
       'contents': [
         {
+          'role': 'user',
           'parts': [
             {'text': fullPrompt},
           ],
@@ -121,22 +137,26 @@ Instructions:
     return (parts.first['text'] as String).trim();
   }
 
-  /// Calls the OpenAI Chat Completions API.
-  static Future<String> _callOpenAi({
+  /// Calls any OpenAI-compatible Chat Completions endpoint.
+  /// Used for both OpenAI and Groq (which share the same API format).
+  static Future<String> _callOpenAiCompatible({
+    required String endpoint,
+    required String model,
     required String systemPrompt,
     required String userMessage,
     required String apiKey,
+    required String providerName,
   }) async {
-    final url = Uri.parse(_openAiEndpoint);
+    final url = Uri.parse(endpoint);
 
     final body = jsonEncode({
-      'model': 'gpt-4o-mini',
+      'model': model,
       'messages': [
         {'role': 'system', 'content': systemPrompt},
         {'role': 'user', 'content': userMessage},
       ],
+      'max_tokens': 1024,
       'temperature': 0.7,
-      'max_tokens': 800,
     });
 
     final response = await http.post(
@@ -150,20 +170,20 @@ Instructions:
 
     if (response.statusCode != 200) {
       throw AiException(
-        'OpenAI API error (${response.statusCode}): ${_extractErrorMessage(response.body)}',
+        '$providerName API error (${response.statusCode}): ${_extractErrorMessage(response.body)}',
       );
     }
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
     final choices = decoded['choices'] as List?;
     if (choices == null || choices.isEmpty) {
-      throw AiException('OpenAI returned no response choices.');
+      throw AiException('$providerName returned no response choices.');
     }
 
     final message = choices.first['message'] as Map<String, dynamic>?;
     final content = message?['content'] as String?;
     if (content == null) {
-      throw AiException('OpenAI response format unexpected.');
+      throw AiException('$providerName response format unexpected.');
     }
 
     return content.trim();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/services/backup_service.dart';
 import 'package:receipto/services/database_helper.dart';
@@ -213,21 +214,21 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.withAlpha(20),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withAlpha(60)),
+        border: Border.all(color: AppTheme.border),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: Colors.blue),
-          SizedBox(width: 12),
+          Icon(Icons.info_outline, color: AppTheme.gold.withAlpha(200)),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Backups are saved as JSON files to your own Google Drive. '
               'Your data never passes through any third-party server. '
               'All actions are manual — there is no automatic sync.',
-              style: TextStyle(fontSize: 13, color: Colors.blue),
+              style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
             ),
           ),
         ],

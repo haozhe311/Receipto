@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:receipto/constants/theme.dart';
 
 /// A placeholder widget shown when there are no transactions to display.
 class EmptyState extends StatelessWidget {
@@ -23,21 +24,21 @@ class EmptyState extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 80,
-              color: Colors.grey[300],
+              size: 72,
+              color: AppTheme.border,
             ),
             const SizedBox(height: 16),
             Text(
               title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.grey[500],
+                    color: AppTheme.textMuted,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[400],
+                    color: AppTheme.textMuted.withAlpha(153),
                   ),
               textAlign: TextAlign.center,
             ),

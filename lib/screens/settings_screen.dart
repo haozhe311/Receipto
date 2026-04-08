@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 
 /// Settings screen for configuring the AI chatbot provider and API key.
@@ -58,6 +59,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: Text('OpenAI'),
                     icon: Icon(Icons.psychology),
                   ),
+                  ButtonSegment(
+                    value: 'groq',
+                    label: Text('Groq (Free & Fast)'),
+                    icon: Icon(Icons.bolt),
+                  ),
                 ],
                 selected: {settings.aiProvider},
                 onSelectionChanged: (selected) {
@@ -66,9 +72,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                settings.aiProvider == 'gemini'
-                    ? 'Using Google Gemini 2.0 Flash'
-                    : 'Using OpenAI GPT-4o Mini',
+                switch (settings.aiProvider) {
+                  'gemini' => 'Using Google Gemini 2.0 Flash-Lite',
+                  'openai' => 'Using OpenAI GPT-4o Mini',
+                  'groq'   => 'Using Groq — Llama 3.1 8B Instant (Free, works in Malaysia)',
+                  _        => '',
+                },
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey[600],
                     ),
@@ -82,8 +91,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: _apiKeyController,
                 obscureText: _obscureKey,
                 decoration: InputDecoration(
-                  labelText: '${settings.aiProvider == 'gemini' ? 'Gemini' : 'OpenAI'} API Key',
+                  labelText: '${switch (settings.aiProvider) { 'gemini' => 'Gemini', 'openai' => 'OpenAI', _ => 'Groq' }} API Key',
                   hintText: 'Paste your API key here',
+                  helperText: settings.aiProvider == 'groq'
+                      ? 'Get your free API key at console.groq.com'
+                      : null,
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -172,27 +184,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Create a new secret key and copy it',
                 ],
               ),
+              const SizedBox(height: 12),
+              _InstructionCard(
+                icon: Icons.bolt,
+                title: 'Groq (Free — Recommended for Malaysia)',
+                steps: const [
+                  'Go to console.groq.com',
+                  'Sign up for a free account',
+                  'Navigate to API Keys section',
+                  'Create a new key and copy it',
+                  'Free tier: 14,400 requests/day, no credit card needed',
+                ],
+              ),
               const SizedBox(height: 24),
 
               // Privacy notice
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withAlpha(20),
+                  color: AppTheme.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.withAlpha(60)),
+                  border: Border.all(color: AppTheme.border),
                 ),
-                child: const Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.lock, size: 18, color: Colors.blue),
-                    SizedBox(width: 8),
+                    Icon(Icons.lock, size: 18, color: AppTheme.gold.withAlpha(200)),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Your API key is stored securely on this device using '
                         'encrypted storage. It is never sent to any server '
                         'other than the AI provider you selected.',
-                        style: TextStyle(fontSize: 13, color: Colors.blue),
+                        style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
                       ),
                     ),
                   ],
@@ -305,11 +329,13 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      title,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+      title.toUpperCase(),
+      style: const TextStyle(
+        color: AppTheme.gold,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
+      ),
     );
   }
 }

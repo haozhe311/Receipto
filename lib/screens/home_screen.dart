@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/providers/transaction_provider.dart';
@@ -8,6 +9,59 @@ import 'package:receipto/widgets/category_chip.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/summary_card.dart';
 import 'package:receipto/widgets/transaction_tile.dart';
+
+/// Shows a bottom sheet so the user can choose between camera and gallery
+/// before navigating to [OcrScanScreen].
+void _showScanSourceSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Scan Receipt',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.camera_alt)),
+            title: const Text('Take Photo'),
+            subtitle: const Text('Open the device camera'),
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const OcrScanScreen(initialSource: ImageSource.camera),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.photo_library)),
+            title: const Text('Choose from Gallery'),
+            subtitle: const Text('Pick an existing photo'),
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const OcrScanScreen(initialSource: ImageSource.gallery),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
 
 /// The main dashboard screen showing spending summary and transaction list.
 class HomeScreen extends StatelessWidget {
@@ -22,10 +76,7 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.camera_alt),
             tooltip: 'Scan Receipt',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const OcrScanScreen()),
-            ),
+            onPressed: () => _showScanSourceSheet(context),
           ),
         ],
       ),
@@ -87,6 +138,9 @@ class HomeScreen extends StatelessWidget {
           MaterialPageRoute(
             builder: (_) => const AddEditTransactionScreen(),
           ),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
         ),
         child: const Icon(Icons.add),
       ),

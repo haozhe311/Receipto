@@ -40,4 +40,15 @@ class AppConstants {
     'Utilities': Color(0xFF66BB6A),
     'Others': Color(0xFF78909C),
   };
+
+  /// Dark-tinted icon container backgrounds for each category (dark theme).
+  static const Map<String, Color> categoryDarkTints = {
+    'Food': Color(0xFF1E2E1E),
+    'Transport': Color(0xFF1E1E2E),
+    'Shopping': Color(0xFF2E1E2E),
+    'Entertainment': Color(0xFF2E2E1E),
+    'Health': Color(0xFF2E1E1E),
+    'Utilities': Color(0xFF1E2A2E),
+    'Others': Color(0xFF252540),
+  };
 }

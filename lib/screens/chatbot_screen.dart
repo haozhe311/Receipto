@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/services/ai_service.dart';
 import 'package:receipto/services/database_helper.dart';
@@ -207,17 +208,20 @@ class _ChatBubble extends StatelessWidget {
     final isUser = message.isUser;
 
     final bgColor = message.isError
-        ? Colors.red.withAlpha(25)
+        ? const Color(0xFF3D1010)
         : isUser
-            ? theme.colorScheme.primary
-            : Colors.grey[200];
+            ? AppTheme.goldDark
+            : AppTheme.surface;
     final textColor = message.isError
-        ? Colors.red[900]
+        ? const Color(0xFFFF9999)
         : isUser
-            ? Colors.white
-            : Colors.black87;
-    final borderColor =
-        message.isError ? Colors.red.withAlpha(100) : Colors.transparent;
+            ? AppTheme.gold
+            : AppTheme.textPrimary;
+    final borderColor = message.isError
+        ? const Color(0xFF6B2020)
+        : isUser
+            ? AppTheme.gold
+            : AppTheme.border;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -263,8 +267,8 @@ class _ChatBubble extends StatelessWidget {
           if (isUser)
             CircleAvatar(
               radius: 16,
-              backgroundColor: Colors.grey[400],
-              child: const Icon(Icons.person, color: Colors.white, size: 18),
+              backgroundColor: AppTheme.border,
+              child: const Icon(Icons.person, color: AppTheme.textPrimary, size: 18),
             ),
         ],
       ),
@@ -292,8 +296,9 @@ class _TypingIndicator extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.grey[200],
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.border),
             ),
             child: const SizedBox(
               width: 20,
@@ -323,10 +328,10 @@ class _InputBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+      decoration: const BoxDecoration(
+        color: AppTheme.navBar,
         border: Border(
-          top: BorderSide(color: Colors.grey[300]!),
+          top: BorderSide(color: AppTheme.border),
         ),
       ),
       child: SafeArea(
