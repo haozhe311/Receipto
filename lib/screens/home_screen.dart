@@ -88,10 +88,14 @@ class HomeScreen extends StatelessWidget {
 
           return Column(
             children: [
-              // Spending summary card
+              // Spending summary card with month navigator
               SummaryCard(
                 monthlyTotal: provider.monthlyTotal,
                 transactionCount: provider.transactionCount,
+                selectedMonth: provider.selectedMonth,
+                isCurrentMonth: provider.isCurrentMonth,
+                onPreviousMonth: () => provider.navigateMonth(-1),
+                onNextMonth: () => provider.navigateMonth(1),
               ),
 
               // Category filter chips

@@ -13,11 +13,23 @@ class TransactionProvider extends ChangeNotifier {
   String? _selectedCategory;
   double _monthlyTotal = 0;
 
+  // Selected month for the home screen navigator (always the 1st of the month).
+  DateTime _selectedMonth = _firstOfMonth(DateTime.now());
+
   List<model.Transaction> get transactions => _transactions;
   bool get isLoading => _isLoading;
   String? get selectedCategory => _selectedCategory;
   double get monthlyTotal => _monthlyTotal;
   int get transactionCount => _transactions.length;
+
+  /// The month currently displayed on the home screen.
+  DateTime get selectedMonth => _selectedMonth;
+
+  /// True when the displayed month is the current calendar month.
+  bool get isCurrentMonth {
+    final now = DateTime.now();
+    return _selectedMonth.year == now.year && _selectedMonth.month == now.month;
+  }
 
   /// Total spending across all loaded transactions.
   double get totalSpending =>
@@ -32,15 +44,38 @@ class TransactionProvider extends ChangeNotifier {
     return map;
   }
 
-  /// Loads transactions from the database with the current filter applied.
+  /// Moves the selected month by [delta] months (+1 = forward, -1 = backward),
+  /// clamped so the user cannot navigate beyond the current month.
+  void navigateMonth(int delta) {
+    final candidate = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + delta,
+    );
+    final now = _firstOfMonth(DateTime.now());
+    if (candidate.isAfter(now)) return; // never go into the future
+    _selectedMonth = candidate;
+    // Reset category filter when changing months for a clean view.
+    _selectedCategory = null;
+    loadTransactions();
+  }
+
+  /// Loads transactions from the database for the selected month
+  /// with the current category filter applied.
   Future<void> loadTransactions() async {
     _isLoading = true;
     notifyListeners();
 
+    final firstDay = _selectedMonth;
+    final lastDay = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
+
     _transactions = await DatabaseHelper.instance.getTransactions(
       category: _selectedCategory,
+      from: firstDay,
+      to: lastDay,
     );
-    _monthlyTotal = await DatabaseHelper.instance.getMonthlyTotal();
+    _monthlyTotal = await DatabaseHelper.instance.getMonthlyTotal(
+      month: _selectedMonth,
+    );
 
     _isLoading = false;
     notifyListeners();
@@ -64,9 +99,12 @@ class TransactionProvider extends ChangeNotifier {
     await loadTransactions();
   }
 
-  /// Sets the category filter and reloads. Pass null to show all.
+  /// Sets the category filter within the current month and reloads.
+  /// Pass null to show all categories.
   void filterByCategory(String? category) {
     _selectedCategory = category;
     loadTransactions();
   }
+
+  static DateTime _firstOfMonth(DateTime d) => DateTime(d.year, d.month);
 }

@@ -3,15 +3,24 @@ import 'package:intl/intl.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 
-/// Displays a spending summary card with the monthly total and transaction count.
+/// Displays a spending summary card with month navigation,
+/// the selected month's total, and transaction count.
 class SummaryCard extends StatelessWidget {
   final double monthlyTotal;
   final int transactionCount;
+  final DateTime selectedMonth;
+  final bool isCurrentMonth;
+  final VoidCallback onPreviousMonth;
+  final VoidCallback onNextMonth;
 
   const SummaryCard({
     super.key,
     required this.monthlyTotal,
     required this.transactionCount,
+    required this.selectedMonth,
+    required this.isCurrentMonth,
+    required this.onPreviousMonth,
+    required this.onNextMonth,
   });
 
   @override
@@ -20,7 +29,7 @@ class SummaryCard extends StatelessWidget {
       locale: AppConstants.currencyLocale,
       symbol: AppConstants.currencySymbol,
     );
-    final monthName = DateFormat('MMMM yyyy').format(DateTime.now());
+    final monthLabel = DateFormat('MMMM yyyy').format(selectedMonth);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -32,8 +41,55 @@ class SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Month navigator row
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+            child: Row(
+              children: [
+                // Previous month
+                IconButton(
+                  onPressed: onPreviousMonth,
+                  icon: const Icon(Icons.chevron_left),
+                  iconSize: 22,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  style: IconButton.styleFrom(
+                    foregroundColor: AppTheme.gold,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                // Month label
+                Expanded(
+                  child: Text(
+                    monthLabel,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                // Next month (disabled when viewing current month)
+                IconButton(
+                  onPressed: isCurrentMonth ? null : onNextMonth,
+                  icon: const Icon(Icons.chevron_right),
+                  iconSize: 22,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  style: IconButton.styleFrom(
+                    foregroundColor: AppTheme.gold,
+                    disabledForegroundColor: const Color(0xFF555577),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Spending amount + count
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -46,12 +102,7 @@ class SummaryCard extends StatelessWidget {
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  monthName,
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   currencyFormat.format(monthlyTotal),
                   style: const TextStyle(
@@ -69,6 +120,7 @@ class SummaryCard extends StatelessWidget {
               ],
             ),
           ),
+
           // Gold accent line at the bottom
           Container(
             height: 3,
