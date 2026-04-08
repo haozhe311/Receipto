@@ -4,6 +4,7 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
+import 'package:receipto/screens/backup_screen.dart';
 import 'package:receipto/screens/chatbot_screen.dart';
 import 'package:receipto/screens/home_screen.dart';
 import 'package:receipto/screens/settings_screen.dart';
@@ -44,12 +45,12 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
-  // Tab screens — placeholder widgets for screens built in later steps.
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const ChatbotScreen(),
-    const _PlaceholderScreen(title: 'Backup', icon: Icons.cloud_upload),
-    const SettingsScreen(),
+  // All four main tab screens.
+  final List<Widget> _screens = const [
+    HomeScreen(),
+    ChatbotScreen(),
+    BackupScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -102,34 +103,6 @@ class _AppShellState extends State<AppShell> {
             label: 'Settings',
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Temporary placeholder for screens that will be built in later steps.
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderScreen({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text(
-              '$title — Coming Soon',
-              style: TextStyle(color: Colors.grey[500], fontSize: 16),
-            ),
-          ],
-        ),
       ),
     );
   }
