@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
-import 'package:receipto/models/category_model.dart';
-import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/settings_provider.dart';
+import 'package:receipto/screens/manage_categories_screen.dart';
+import 'package:receipto/screens/manage_payment_methods_screen.dart';
 
-/// Settings screen for configuring the AI chatbot provider and API key.
+/// Settings screen.
 ///
-/// Users enter their own API key (BYOK — Bring Your Own Key) which is
-/// stored securely on-device using encrypted storage.
+/// Section order:
+///   1. AI PROVIDER  — provider toggle + API key input
+///   2. PREFERENCES  — Manage Categories / Manage Payment Methods nav tiles
+///   3. HOW TO GET AN API KEY — provider instructions
+///   4. ABOUT        — app version
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -24,7 +27,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill the API key field if one is already stored
     final settings = context.read<SettingsProvider>();
     if (settings.hasApiKey) {
       _apiKeyController.text = settings.apiKey!;
@@ -46,8 +48,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // AI Provider section
-              _SectionHeader(title: 'AI Provider'),
+              // ── 1. AI PROVIDER ──────────────────────────────────────────
+              const _SectionHeader(title: 'AI Provider'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
                 segments: const [
@@ -68,32 +70,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
                 selected: {settings.aiProvider},
-                onSelectionChanged: (selected) {
-                  settings.setAiProvider(selected.first);
-                },
+                onSelectionChanged: (selected) =>
+                    settings.setAiProvider(selected.first),
               ),
               const SizedBox(height: 8),
               Text(
                 switch (settings.aiProvider) {
                   'gemini' => 'Using Google Gemini 2.0 Flash-Lite',
                   'openai' => 'Using OpenAI GPT-4o Mini',
-                  'groq'   => 'Using Groq — Llama 3.1 8B Instant (Free, works in Malaysia)',
+                  'groq'   =>
+                    'Using Groq — Llama 3.1 8B Instant (Free, works in Malaysia)',
                   _        => '',
                 },
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
+                      color: AppTheme.textMuted,
                     ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // API Key section
-              _SectionHeader(title: 'API Key'),
+              // ── API KEY ──────────────────────────────────────────────────
+              const _SectionHeader(title: 'API Key'),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _apiKeyController,
                 obscureText: _obscureKey,
                 decoration: InputDecoration(
-                  labelText: '${switch (settings.aiProvider) { 'gemini' => 'Gemini', 'openai' => 'OpenAI', _ => 'Groq' }} API Key',
+                  labelText:
+                      '${switch (settings.aiProvider) { 'gemini' => 'Gemini', 'openai' => 'OpenAI', _ => 'Groq' }} API Key',
                   hintText: 'Paste your API key here',
                   helperText: settings.aiProvider == 'groq'
                       ? 'Get your free API key at console.groq.com'
@@ -107,9 +110,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ? Icons.visibility_off
                               : Icons.visibility,
                         ),
-                        onPressed: () {
-                          setState(() => _obscureKey = !_obscureKey);
-                        },
+                        onPressed: () =>
+                            setState(() => _obscureKey = !_obscureKey),
                       ),
                     ],
                   ),
@@ -137,8 +139,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Key status indicator
               Row(
                 children: [
                   Icon(
@@ -154,22 +154,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? 'API key is saved securely on this device'
                         : 'No API key set — chatbot will not work',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color:
-                              settings.hasApiKey ? Colors.green : Colors.orange,
+                          color: settings.hasApiKey
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                   ),
                 ],
               ),
+
+              // Privacy notice
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.lock,
+                      size: 18,
+                      color: AppTheme.gold.withAlpha(200),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your API key is stored securely on this device using '
+                        'encrypted storage. It is never sent to any server '
+                        'other than the AI provider you selected.',
+                        style:
+                            TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
-              // Manage Categories section
-              _SectionHeader(title: 'Manage Categories'),
+              // ── 2. PREFERENCES ───────────────────────────────────────────
+              const _SectionHeader(title: 'Preferences'),
               const SizedBox(height: 8),
-              _ManageCategoriesSection(),
+              _NavTile(
+                icon: Icons.grid_view_rounded,
+                title: 'Manage Categories',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ManageCategoriesScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.credit_card,
+                title: 'Manage Payment Methods',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ManagePaymentMethodsScreen(),
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
 
-              // Instructions
-              _SectionHeader(title: 'How to get an API key'),
+              // ── 3. HOW TO GET AN API KEY ─────────────────────────────────
+              const _SectionHeader(title: 'How to get an API key'),
               const SizedBox(height: 8),
               _InstructionCard(
                 icon: Icons.auto_awesome,
@@ -206,34 +258,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Privacy notice
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.lock, size: 18, color: AppTheme.gold.withAlpha(200)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Your API key is stored securely on this device using '
-                        'encrypted storage. It is never sent to any server '
-                        'other than the AI provider you selected.',
-                        style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // About section
-              _SectionHeader(title: 'About'),
+              // ── 4. ABOUT ─────────────────────────────────────────────────
+              const _SectionHeader(title: 'About'),
               const SizedBox(height: 8),
               Card(
                 child: Padding(
@@ -243,7 +269,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text(
                         AppConstants.appName,
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
@@ -255,20 +283,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Text(
                         'FYP1 Proof of Concept',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
+                              color: AppTheme.textMuted,
                             ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Intelligent Personal Finance Management System',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
+                              color: AppTheme.textMuted,
                             ),
                       ),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
             ],
           );
         },
@@ -287,7 +316,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
-
     context.read<SettingsProvider>().setApiKey(key);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -329,7 +357,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// Section header label used throughout the settings screen.
+// ── Shared widgets ────────────────────────────────────────────────────────────
+
+/// Gold uppercase section header.
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader({required this.title});
@@ -348,7 +378,55 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// A card with step-by-step instructions for getting an API key.
+/// A tappable card row that navigates to a sub-screen.
+class _NavTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  const _NavTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: AppTheme.gold),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: Color(0xFF555577),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A card with step-by-step instructions for obtaining an API key.
 class _InstructionCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -390,9 +468,10 @@ class _InstructionCard extends StatelessWidget {
                   children: [
                     Text(
                       '${entry.key + 1}. ',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     Expanded(
                       child: Text(
@@ -406,210 +485,6 @@ class _InstructionCard extends StatelessWidget {
             }),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Manage Categories section — shows the current list with delete buttons
-/// and an "Add Category" button that opens an input dialog.
-class _ManageCategoriesSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<CategoryProvider>(
-      builder: (context, categoryProvider, _) {
-        final categories = categoryProvider.categories;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Category list
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: Column(
-                children: [
-                  for (int i = 0; i < categories.length; i++) ...[
-                    if (i > 0)
-                      Divider(
-                        height: 1,
-                        indent: 16,
-                        endIndent: 0,
-                        color: AppTheme.border,
-                      ),
-                    _CategoryRow(
-                      category: categories[i],
-                      onDelete: categories[i].name == 'Others'
-                          ? null
-                          : () => categoryProvider
-                              .deleteCategory(categories[i].name),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Add category button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _showAddCategoryDialog(context, categoryProvider),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Category'),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showAddCategoryDialog(
-    BuildContext context,
-    CategoryProvider categoryProvider,
-  ) {
-    final nameController = TextEditingController();
-    final emojiController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Category'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Category name',
-                  hintText: 'e.g. Fitness, Travel',
-                ),
-                textCapitalization: TextCapitalization.words,
-                maxLength: 20,
-                validator: (value) {
-                  final trimmed = value?.trim() ?? '';
-                  if (trimmed.isEmpty) {
-                    return 'Name cannot be empty';
-                  }
-                  if (categoryProvider.categoryNames.any(
-                    (n) => n.toLowerCase() == trimmed.toLowerCase(),
-                  )) {
-                    return 'Category already exists';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: emojiController,
-                decoration: const InputDecoration(
-                  labelText: 'Emoji icon',
-                  hintText: 'e.g. 🏋️, ✈️, 📚',
-                  counterText: '',
-                ),
-                maxLength: 8,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter an emoji';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) { return; }
-              await categoryProvider.addCategory(
-                nameController.text.trim(),
-                emojiController.text.trim(),
-              );
-              if (ctx.mounted) { Navigator.of(ctx).pop(); }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    ).then((_) {
-      nameController.dispose();
-      emojiController.dispose();
-    });
-  }
-}
-
-/// A single row in the Manage Categories list.
-class _CategoryRow extends StatelessWidget {
-  final CategoryModel category;
-
-  /// Null means the category is protected (cannot be deleted).
-  final VoidCallback? onDelete;
-
-  const _CategoryRow({required this.category, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    final isBuiltIn = AppConstants.categoryIcons.containsKey(category.name);
-    final builtInIcon = AppConstants.categoryIcons[category.name];
-    final builtInColor =
-        AppConstants.categoryColors[category.name] ?? Colors.grey;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          // Icon / emoji
-          SizedBox(
-            width: 32,
-            child: isBuiltIn
-                ? Icon(builtInIcon, color: builtInColor, size: 20)
-                : Text(
-                    category.emoji,
-                    style: const TextStyle(fontSize: 18),
-                    textAlign: TextAlign.center,
-                  ),
-          ),
-          const SizedBox(width: 12),
-          // Name
-          Expanded(
-            child: Text(
-              category.name,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          // Delete button or lock icon for Others
-          if (onDelete != null)
-            IconButton(
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline),
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              color: const Color(0xFFFF6B6B),
-              tooltip: 'Delete category',
-            )
-          else
-            const Icon(
-              Icons.lock_outline,
-              size: 16,
-              color: AppTheme.textMuted,
-            ),
-        ],
       ),
     );
   }

@@ -13,7 +13,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const String _dbName = 'receipto.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
 
   // Table and column names
   static const String tableTransactions = 'transactions';
@@ -35,6 +35,7 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -47,6 +48,7 @@ class DatabaseHelper {
         merchant TEXT NOT NULL,
         amount REAL NOT NULL,
         category TEXT NOT NULL,
+        payment_method TEXT NOT NULL DEFAULT 'Cash',
         is_ocr INTEGER NOT NULL DEFAULT 0,
         note TEXT,
         created_at TEXT NOT NULL
@@ -59,6 +61,16 @@ class DatabaseHelper {
         value TEXT NOT NULL
       )
     ''');
+  }
+
+  /// Migrates the database schema between versions.
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // v1 → v2: add payment_method column (existing rows default to 'Cash')
+      await db.execute(
+        "ALTER TABLE $tableTransactions ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'Cash'",
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------

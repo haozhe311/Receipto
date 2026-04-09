@@ -101,6 +101,14 @@ class TransactionTile extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      transaction.paymentMethod,
+                      style: const TextStyle(
+                        color: Color(0xFF555577),
+                        fontSize: 10,
+                      ),
+                    ),
                   ],
                 ),
               ),

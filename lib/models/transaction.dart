@@ -5,6 +5,7 @@ class Transaction {
   final String merchant;
   final double amount;
   final String category;
+  final String paymentMethod;
   final bool isOcr;
   final String? note;
   final DateTime createdAt;
@@ -15,6 +16,7 @@ class Transaction {
     required this.merchant,
     required this.amount,
     required this.category,
+    this.paymentMethod = 'Cash',
     this.isOcr = false,
     this.note,
     DateTime? createdAt,
@@ -28,6 +30,7 @@ class Transaction {
       'merchant': merchant,
       'amount': amount,
       'category': category,
+      'payment_method': paymentMethod,
       'is_ocr': isOcr ? 1 : 0,
       'note': note,
       'created_at': createdAt.toIso8601String(),
@@ -42,6 +45,7 @@ class Transaction {
       merchant: map['merchant'] as String,
       amount: (map['amount'] as num).toDouble(),
       category: map['category'] as String,
+      paymentMethod: (map['payment_method'] as String?) ?? 'Cash',
       isOcr: (map['is_ocr'] as int) == 1,
       note: map['note'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
@@ -55,6 +59,7 @@ class Transaction {
     String? merchant,
     double? amount,
     String? category,
+    String? paymentMethod,
     bool? isOcr,
     String? note,
     DateTime? createdAt,
@@ -65,6 +70,7 @@ class Transaction {
       merchant: merchant ?? this.merchant,
       amount: amount ?? this.amount,
       category: category ?? this.category,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
       isOcr: isOcr ?? this.isOcr,
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
@@ -78,6 +84,7 @@ class Transaction {
       'merchant': merchant,
       'amount': amount,
       'category': category,
+      'payment_method': paymentMethod,
     };
   }
 }

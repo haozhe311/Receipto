@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/models/transaction.dart' as model;
 import 'package:receipto/providers/category_provider.dart';
+import 'package:receipto/providers/payment_method_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/services/ocr_service.dart';
 import 'package:receipto/widgets/category_chip.dart';
+import 'package:receipto/widgets/payment_method_chip.dart';
 
 /// Screen that captures a receipt image, runs OCR, and lets the user
 /// review/correct the parsed data before saving.
@@ -35,6 +37,7 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
 
   DateTime _selectedDate = DateTime.now();
   String _selectedCategory = 'Others';
+  String _selectedPaymentMethod = 'Cash';
   String _rawText = '';
   bool _isProcessing = false;
   bool _hasScanned = false;
@@ -265,6 +268,22 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Payment method selector
+          Text('Payment Method', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 0,
+            runSpacing: 8,
+            children: context.watch<PaymentMethodProvider>().methods.map((m) {
+              return PaymentMethodChip(
+                method: m,
+                isSelected: _selectedPaymentMethod == m,
+                onTap: () => setState(() => _selectedPaymentMethod = m),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
           // Note field (optional)
           TextFormField(
             controller: _noteController,
@@ -343,6 +362,7 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
       merchant: merchant,
       amount: amount,
       category: _selectedCategory,
+      paymentMethod: _selectedPaymentMethod,
       isOcr: true,
       note: note.isNotEmpty ? note : null,
     );

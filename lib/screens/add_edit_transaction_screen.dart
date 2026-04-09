@@ -3,8 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/models/transaction.dart' as model;
 import 'package:receipto/providers/category_provider.dart';
+import 'package:receipto/providers/payment_method_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/widgets/category_chip.dart';
+import 'package:receipto/widgets/payment_method_chip.dart';
 
 /// Screen for manually adding a new transaction or editing an existing one.
 ///
@@ -27,6 +29,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   late final TextEditingController _noteController;
   late DateTime _selectedDate;
   late String _selectedCategory;
+  late String _selectedPaymentMethod;
 
   bool get _isEditing => widget.transaction != null;
 
@@ -40,13 +43,20 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     _merchantController = TextEditingController(text: t?.merchant ?? '');
     _noteController = TextEditingController(text: t?.note ?? '');
     _selectedDate = t?.date ?? DateTime.now();
+
     // Fall back to 'Others' if the stored category was deleted.
-    final knownCategories =
-        context.read<CategoryProvider>().categoryNames;
+    final knownCategories = context.read<CategoryProvider>().categoryNames;
     _selectedCategory =
         (t != null && knownCategories.contains(t.category))
             ? t.category
             : 'Others';
+
+    // Fall back to 'Cash' if the stored payment method was deleted.
+    final knownMethods = context.read<PaymentMethodProvider>().methods;
+    _selectedPaymentMethod =
+        (t != null && knownMethods.contains(t.paymentMethod))
+            ? t.paymentMethod
+            : 'Cash';
   }
 
   @override
@@ -126,10 +136,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             const SizedBox(height: 16),
 
             // Category selector
-            Text(
-              'Category',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+            Text('Category', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 0,
@@ -140,6 +147,22 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
                   emoji: cat.emoji,
                   isSelected: _selectedCategory == cat.name,
                   onTap: () => setState(() => _selectedCategory = cat.name),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Payment method selector
+            Text('Payment Method', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 0,
+              runSpacing: 8,
+              children: context.watch<PaymentMethodProvider>().methods.map((m) {
+                return PaymentMethodChip(
+                  method: m,
+                  isSelected: _selectedPaymentMethod == m,
+                  onTap: () => setState(() => _selectedPaymentMethod = m),
                 );
               }).toList(),
             ),
@@ -163,7 +186,9 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
               child: ElevatedButton.icon(
                 onPressed: _saveTransaction,
                 icon: Icon(_isEditing ? Icons.check : Icons.add),
-                label: Text(_isEditing ? 'Update Transaction' : 'Add Transaction'),
+                label: Text(
+                  _isEditing ? 'Update Transaction' : 'Add Transaction',
+                ),
               ),
             ),
           ],
@@ -174,7 +199,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
 
   /// Validates the form and saves the transaction to the database.
   Future<void> _saveTransaction() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) { return; }
 
     final amount = double.parse(_amountController.text.trim());
     final merchant = _merchantController.text.trim();
@@ -186,6 +211,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
       merchant: merchant,
       amount: amount,
       category: _selectedCategory,
+      paymentMethod: _selectedPaymentMethod,
       isOcr: widget.transaction?.isOcr ?? false,
       note: note.isNotEmpty ? note : null,
       createdAt: widget.transaction?.createdAt,
@@ -199,7 +225,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
       await provider.addTransaction(transaction);
     }
 
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) { Navigator.of(context).pop(); }
   }
 
   /// Shows a confirmation dialog before deleting the transaction.
@@ -222,7 +248,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
               await context
                   .read<TransactionProvider>()
                   .deleteTransaction(widget.transaction!.id!);
-              if (mounted) Navigator.of(context).pop();
+              if (mounted) { Navigator.of(context).pop(); }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
@@ -253,7 +279,7 @@ class _DatePickerTile extends StatelessWidget {
           firstDate: DateTime(2020),
           lastDate: DateTime.now(),
         );
-        if (picked != null) onDateChanged(picked);
+        if (picked != null) { onDateChanged(picked); }
       },
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
