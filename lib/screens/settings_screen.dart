@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
@@ -9,7 +10,7 @@ import 'package:receipto/screens/manage_payment_methods_screen.dart';
 /// Settings screen.
 ///
 /// Section order:
-///   1. AI PROVIDER  — provider toggle + API key input
+///   1. AI PROVIDER  — provider toggle + per-provider key list + add-key field
 ///   2. PREFERENCES  — Manage Categories / Manage Payment Methods nav tiles
 ///   3. HOW TO GET AN API KEY — provider instructions
 ///   4. ABOUT        — app version
@@ -21,21 +22,25 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _apiKeyController = TextEditingController();
-  bool _obscureKey = true;
+  final _addKeyController = TextEditingController();
+  bool _obscureNewKey = true;
+  String? _keyError;
 
-  @override
-  void initState() {
-    super.initState();
-    final settings = context.read<SettingsProvider>();
-    if (settings.hasApiKey) {
-      _apiKeyController.text = settings.apiKey!;
-    }
-  }
+  static const Map<String, String> _prefixes = {
+    'groq':   'gsk_',
+    'openai': 'sk-',
+    'gemini': 'AIza',
+  };
+
+  static const Map<String, String> _providerLabels = {
+    'groq':   'Groq',
+    'openai': 'OpenAI',
+    'gemini': 'Gemini',
+  };
 
   @override
   void dispose() {
-    _apiKeyController.dispose();
+    _addKeyController.dispose();
     super.dispose();
   }
 
@@ -45,10 +50,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('Settings')),
       body: Consumer<SettingsProvider>(
         builder: (context, settings, _) {
+          final provider = settings.aiProvider;
+          final keys = settings.keysFor(provider);
+          final activeIdx = settings.activeIndexFor(provider);
+
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // ── 1. AI PROVIDER ──────────────────────────────────────────
+              // ── 1. AI PROVIDER ─────────────────────────────────────────
               const _SectionHeader(title: 'AI Provider'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
@@ -69,13 +78,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icon(Icons.bolt),
                   ),
                 ],
-                selected: {settings.aiProvider},
-                onSelectionChanged: (selected) =>
-                    settings.setAiProvider(selected.first),
+                selected: {provider},
+                onSelectionChanged: (selected) {
+                  settings.setAiProvider(selected.first);
+                  // Clear the add-key field when switching providers.
+                  _addKeyController.clear();
+                  setState(() => _obscureNewKey = true);
+                },
               ),
               const SizedBox(height: 8),
               Text(
-                switch (settings.aiProvider) {
+                switch (provider) {
                   'gemini' => 'Using Google Gemini 2.0 Flash-Lite',
                   'openai' => 'Using OpenAI GPT-4o Mini',
                   'groq'   =>
@@ -88,82 +101,107 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── API KEY ──────────────────────────────────────────────────
-              const _SectionHeader(title: 'API Key'),
+              // ── API KEYS ───────────────────────────────────────────────
+              const _SectionHeader(title: 'API Keys'),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _apiKeyController,
-                obscureText: _obscureKey,
-                decoration: InputDecoration(
-                  labelText:
-                      '${switch (settings.aiProvider) { 'gemini' => 'Gemini', 'openai' => 'OpenAI', _ => 'Groq' }} API Key',
-                  hintText: 'Paste your API key here',
-                  helperText: settings.aiProvider == 'groq'
-                      ? 'Get your free API key at console.groq.com'
-                      : null,
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
+
+              // Key list (empty state or rows)
+              if (keys.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
                     children: [
-                      IconButton(
-                        icon: Icon(
-                          _obscureKey
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                      const Icon(
+                        Icons.warning_amber,
+                        size: 16,
+                        color: Color(0xFF555577),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'No API key saved — chatbot will not work',
+                        style: TextStyle(
+                          color: AppTheme.textMuted,
+                          fontSize: 13,
                         ),
-                        onPressed: () =>
-                            setState(() => _obscureKey = !_obscureKey),
                       ),
                     ],
                   ),
+                )
+              else
+                Column(
+                  children: [
+                    for (int i = 0; i < keys.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      _KeyRow(
+                        keyValue: keys[i],
+                        isActive: i == activeIdx,
+                        onActivate: () => settings.setActiveKey(provider, i),
+                        onDelete: () => _confirmDelete(context, settings, provider, i),
+                      ),
+                    ],
+                  ],
+                ),
+
+              // ── Add new key ────────────────────────────────────────────
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _addKeyController,
+                obscureText: _obscureNewKey,
+                onChanged: (_) {
+                  if (_keyError != null) {
+                    setState(() => _keyError = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText:
+                      'New ${_providerLabels[provider] ?? 'Provider'} API Key',
+                  hintText: switch (provider) {
+                    'groq'   => 'Paste your Groq key (starts with gsk_)',
+                    'openai' => 'Paste your OpenAI key (starts with sk-)',
+                    _        => 'Paste your Gemini key (starts with AIza)',
+                  },
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureNewKey
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscureNewKey = !_obscureNewKey),
+                  ),
                 ),
               ),
+              if (_keyError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    _keyError!,
+                    style: const TextStyle(
+                      color: Color(0xFFFF6B6B),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _saveApiKey,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Save Key'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: settings.hasApiKey ? _clearApiKey : null,
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Clear'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    settings.hasApiKey
-                        ? Icons.check_circle
-                        : Icons.warning_amber,
-                    size: 16,
-                    color: settings.hasApiKey ? Colors.green : Colors.orange,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    settings.hasApiKey
-                        ? 'API key is saved securely on this device'
-                        : 'No API key set — chatbot will not work',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: settings.hasApiKey
-                              ? Colors.green
-                              : Colors.orange,
-                        ),
-                  ),
-                ],
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _saveNewKey(context, settings),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Save Key'),
+                ),
               ),
 
               // Privacy notice
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -182,9 +220,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Your API key is stored securely on this device using '
-                        'encrypted storage. It is never sent to any server '
-                        'other than the AI provider you selected.',
+                        'API keys are stored on this device and never sent '
+                        'to any server other than the AI provider you selected.',
                         style:
                             TextStyle(fontSize: 13, color: AppTheme.textMuted),
                       ),
@@ -194,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 2. PREFERENCES ───────────────────────────────────────────
+              // ── 2. PREFERENCES ─────────────────────────────────────────
               const _SectionHeader(title: 'Preferences'),
               const SizedBox(height: 8),
               _NavTile(
@@ -220,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 3. HOW TO GET AN API KEY ─────────────────────────────────
+              // ── 3. HOW TO GET AN API KEY ───────────────────────────────
               const _SectionHeader(title: 'How to get an API key'),
               const SizedBox(height: 8),
               _InstructionCard(
@@ -258,7 +295,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 4. ABOUT ─────────────────────────────────────────────────
+              // ── 4. ABOUT ───────────────────────────────────────────────
               const _SectionHeader(title: 'About'),
               const SizedBox(height: 8),
               Card(
@@ -305,8 +342,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _saveApiKey() {
-    final key = _apiKeyController.text.trim();
+  void _saveNewKey(BuildContext context, SettingsProvider settings) {
+    final key = _addKeyController.text.trim();
+    final provider = settings.aiProvider;
+
     if (key.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -316,42 +355,203 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
-    context.read<SettingsProvider>().setApiKey(key);
+
+    // Prefix validation
+    final expectedPrefix = _prefixes[provider] ?? '';
+    if (!key.startsWith(expectedPrefix)) {
+      final label = _providerLabels[provider] ?? provider;
+      // Use "an" before vowels, "a" before consonants.
+      final article = 'aeiouAEIOU'.contains(label[0]) ? 'an' : 'a';
+      setState(() {
+        _keyError =
+            "This doesn't look like $article $label key. "
+            "$label keys start with $expectedPrefix";
+      });
+      return;
+    }
+
+    settings.addKey(provider, key);
+    _addKeyController.clear();
+    setState(() {
+      _obscureNewKey = true;
+      _keyError = null;
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('API key saved securely'),
+        content: Text('API key saved'),
         backgroundColor: Colors.green,
       ),
     );
   }
 
-  void _clearApiKey() {
-    showDialog(
+  void _confirmDelete(
+    BuildContext context,
+    SettingsProvider settings,
+    String provider,
+    int index,
+  ) {
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear API Key'),
-        content: const Text(
-          'Are you sure you want to remove the stored API key? '
-          'The AI chatbot will stop working until a new key is set.',
-        ),
+        title: const Text('Delete this API key?'),
+        content: const Text('This cannot be undone.'),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              context.read<SettingsProvider>().clearApiKey();
-              _apiKeyController.clear();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('API key removed')),
-              );
+              settings.deleteKey(provider, index);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Clear'),
+            child: const Text('Delete'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Key row ───────────────────────────────────────────────────────────────────
+
+/// A card row displaying one API key with reveal / copy / delete actions.
+class _KeyRow extends StatefulWidget {
+  final String keyValue;
+  final bool isActive;
+  final VoidCallback onActivate;
+  final VoidCallback onDelete;
+
+  const _KeyRow({
+    required this.keyValue,
+    required this.isActive,
+    required this.onActivate,
+    required this.onDelete,
+  });
+
+  @override
+  State<_KeyRow> createState() => _KeyRowState();
+}
+
+class _KeyRowState extends State<_KeyRow> {
+  bool _revealed = false;
+  bool _copied = false;
+
+  static String _mask(String key) {
+    if (key.length < 12) { return '••••••••'; }
+    return '${key.substring(0, 8)}••••••••••••••••${key.substring(key.length - 4)}';
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.keyValue));
+    setState(() => _copied = true);
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (mounted) { setState(() => _copied = false); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = _revealed ? widget.keyValue : _mask(widget.keyValue);
+
+    return GestureDetector(
+      onTap: widget.onActivate,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: widget.isActive ? AppTheme.gold : AppTheme.border,
+            width: widget.isActive ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Reveal toggle
+            GestureDetector(
+              onTap: () => setState(() => _revealed = !_revealed),
+              child: Icon(
+                _revealed ? Icons.visibility : Icons.visibility_off,
+                size: 18,
+                color: _revealed ? AppTheme.gold : const Color(0xFF555577),
+              ),
+            ),
+            const SizedBox(width: 10),
+
+            // Key text + ACTIVE badge
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      displayText,
+                      style: TextStyle(
+                        color: _revealed
+                            ? AppTheme.gold
+                            : const Color(0xFFC0C0D8),
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (widget.isActive) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.goldDark,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.gold),
+                      ),
+                      child: const Text(
+                        'ACTIVE',
+                        style: TextStyle(
+                          color: AppTheme.gold,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Copy button
+            GestureDetector(
+              onTap: _copy,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  _copied ? Icons.check : Icons.copy,
+                  size: 18,
+                  color: _copied
+                      ? const Color(0xFF4CAF50)
+                      : const Color(0xFF555577),
+                ),
+              ),
+            ),
+
+            // Delete button
+            GestureDetector(
+              onTap: widget.onDelete,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: Color(0xFFFF6B6B),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

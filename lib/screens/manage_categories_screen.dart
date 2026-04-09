@@ -67,79 +67,99 @@ class ManageCategoriesScreen extends StatelessWidget {
   }
 
   void _showAddDialog(BuildContext context, CategoryProvider provider) {
-    final nameController = TextEditingController();
-    final emojiController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Category'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Category name',
-                  hintText: 'e.g. Fitness, Travel',
-                ),
-                textCapitalization: TextCapitalization.words,
-                maxLength: 20,
-                validator: (value) {
-                  final trimmed = value?.trim() ?? '';
-                  if (trimmed.isEmpty) { return 'Name cannot be empty'; }
-                  if (provider.categoryNames.any(
-                    (n) => n.toLowerCase() == trimmed.toLowerCase(),
-                  )) {
-                    return 'Category already exists';
-                  }
-                  return null;
-                },
+      builder: (dialogContext) => _AddCategoryDialog(provider: provider),
+    );
+  }
+}
+
+class _AddCategoryDialog extends StatefulWidget {
+  final CategoryProvider provider;
+  const _AddCategoryDialog({required this.provider});
+
+  @override
+  State<_AddCategoryDialog> createState() => _AddCategoryDialogState();
+}
+
+class _AddCategoryDialogState extends State<_AddCategoryDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emojiController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emojiController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Category'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Category name',
+                hintText: 'e.g. Fitness, Travel',
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: emojiController,
-                decoration: const InputDecoration(
-                  labelText: 'Emoji icon',
-                  hintText: 'e.g. 🏋️, ✈️, 📚',
-                  counterText: '',
-                ),
-                maxLength: 8,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter an emoji';
-                  }
-                  return null;
-                },
+              textCapitalization: TextCapitalization.words,
+              maxLength: 20,
+              validator: (value) {
+                final trimmed = value?.trim() ?? '';
+                if (trimmed.isEmpty) { return 'Name cannot be empty'; }
+                if (widget.provider.categoryNames.any(
+                  (n) => n.toLowerCase() == trimmed.toLowerCase(),
+                )) {
+                  return 'Category already exists';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _emojiController,
+              decoration: const InputDecoration(
+                labelText: 'Emoji icon',
+                hintText: 'e.g. 🏋️, ✈️, 📚',
+                counterText: '',
               ),
-            ],
-          ),
+              maxLength: 8,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter an emoji';
+                }
+                return null;
+              },
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) { return; }
-              await provider.addCategory(
-                nameController.text.trim(),
-                emojiController.text.trim(),
-              );
-              if (ctx.mounted) { Navigator.of(ctx).pop(); }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
-    ).then((_) {
-      nameController.dispose();
-      emojiController.dispose();
-    });
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () async {
+            if (!_formKey.currentState!.validate()) { return; }
+            final nav = Navigator.of(context);
+            await widget.provider.addCategory(
+              _nameController.text.trim(),
+              _emojiController.text.trim(),
+            );
+            if (mounted) { nav.pop(); }
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
   }
 }
 

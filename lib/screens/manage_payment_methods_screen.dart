@@ -66,51 +66,74 @@ class ManagePaymentMethodsScreen extends StatelessWidget {
   }
 
   void _showAddDialog(BuildContext context, PaymentMethodProvider provider) {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Payment Method'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'Payment method name',
-              hintText: 'e.g. Boost, Wise, Debit Card',
-            ),
-            textCapitalization: TextCapitalization.words,
-            maxLength: 30,
-            validator: (value) {
-              final trimmed = value?.trim() ?? '';
-              if (trimmed.isEmpty) { return 'Name cannot be empty'; }
-              if (provider.methods.any(
-                (m) => m.toLowerCase() == trimmed.toLowerCase(),
-              )) {
-                return 'Payment method already exists';
-              }
-              return null;
-            },
+      builder: (dialogContext) => _AddPaymentMethodDialog(provider: provider),
+    );
+  }
+}
+
+class _AddPaymentMethodDialog extends StatefulWidget {
+  final PaymentMethodProvider provider;
+  const _AddPaymentMethodDialog({required this.provider});
+
+  @override
+  State<_AddPaymentMethodDialog> createState() =>
+      _AddPaymentMethodDialogState();
+}
+
+class _AddPaymentMethodDialogState extends State<_AddPaymentMethodDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Payment Method'),
+      content: Form(
+        key: _formKey,
+        child: TextFormField(
+          controller: _controller,
+          decoration: const InputDecoration(
+            labelText: 'Payment method name',
+            hintText: 'e.g. Boost, Wise, Debit Card',
           ),
+          textCapitalization: TextCapitalization.words,
+          maxLength: 30,
+          validator: (value) {
+            final trimmed = value?.trim() ?? '';
+            if (trimmed.isEmpty) { return 'Name cannot be empty'; }
+            if (widget.provider.methods.any(
+              (m) => m.toLowerCase() == trimmed.toLowerCase(),
+            )) {
+              return 'Payment method already exists';
+            }
+            return null;
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) { return; }
-              await provider.addMethod(controller.text.trim());
-              if (ctx.mounted) { Navigator.of(ctx).pop(); }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
-    ).then((_) => controller.dispose());
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () async {
+            if (!_formKey.currentState!.validate()) { return; }
+            final nav = Navigator.of(context);
+            await widget.provider.addMethod(_controller.text.trim());
+            if (mounted) { nav.pop(); }
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
   }
 }
 
