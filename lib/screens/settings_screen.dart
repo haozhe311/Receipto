@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/models/category_model.dart';
+import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/settings_provider.dart';
 
 /// Settings screen for configuring the AI chatbot provider and API key.
@@ -158,6 +160,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+
+              // Manage Categories section
+              _SectionHeader(title: 'Manage Categories'),
+              const SizedBox(height: 8),
+              _ManageCategoriesSection(),
               const SizedBox(height: 24),
 
               // Instructions
@@ -398,6 +406,210 @@ class _InstructionCard extends StatelessWidget {
             }),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Manage Categories section — shows the current list with delete buttons
+/// and an "Add Category" button that opens an input dialog.
+class _ManageCategoriesSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CategoryProvider>(
+      builder: (context, categoryProvider, _) {
+        final categories = categoryProvider.categories;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Category list
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                children: [
+                  for (int i = 0; i < categories.length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 0,
+                        color: AppTheme.border,
+                      ),
+                    _CategoryRow(
+                      category: categories[i],
+                      onDelete: categories[i].name == 'Others'
+                          ? null
+                          : () => categoryProvider
+                              .deleteCategory(categories[i].name),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Add category button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showAddCategoryDialog(context, categoryProvider),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Category'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAddCategoryDialog(
+    BuildContext context,
+    CategoryProvider categoryProvider,
+  ) {
+    final nameController = TextEditingController();
+    final emojiController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Category'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Category name',
+                  hintText: 'e.g. Fitness, Travel',
+                ),
+                textCapitalization: TextCapitalization.words,
+                maxLength: 20,
+                validator: (value) {
+                  final trimmed = value?.trim() ?? '';
+                  if (trimmed.isEmpty) {
+                    return 'Name cannot be empty';
+                  }
+                  if (categoryProvider.categoryNames.any(
+                    (n) => n.toLowerCase() == trimmed.toLowerCase(),
+                  )) {
+                    return 'Category already exists';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: emojiController,
+                decoration: const InputDecoration(
+                  labelText: 'Emoji icon',
+                  hintText: 'e.g. 🏋️, ✈️, 📚',
+                  counterText: '',
+                ),
+                maxLength: 8,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter an emoji';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) { return; }
+              await categoryProvider.addCategory(
+                nameController.text.trim(),
+                emojiController.text.trim(),
+              );
+              if (ctx.mounted) { Navigator.of(ctx).pop(); }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    ).then((_) {
+      nameController.dispose();
+      emojiController.dispose();
+    });
+  }
+}
+
+/// A single row in the Manage Categories list.
+class _CategoryRow extends StatelessWidget {
+  final CategoryModel category;
+
+  /// Null means the category is protected (cannot be deleted).
+  final VoidCallback? onDelete;
+
+  const _CategoryRow({required this.category, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final isBuiltIn = AppConstants.categoryIcons.containsKey(category.name);
+    final builtInIcon = AppConstants.categoryIcons[category.name];
+    final builtInColor =
+        AppConstants.categoryColors[category.name] ?? Colors.grey;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          // Icon / emoji
+          SizedBox(
+            width: 32,
+            child: isBuiltIn
+                ? Icon(builtInIcon, color: builtInColor, size: 20)
+                : Text(
+                    category.emoji,
+                    style: const TextStyle(fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
+          ),
+          const SizedBox(width: 12),
+          // Name
+          Expanded(
+            child: Text(
+              category.name,
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          // Delete button or lock icon for Others
+          if (onDelete != null)
+            IconButton(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline),
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              color: const Color(0xFFFF6B6B),
+              tooltip: 'Delete category',
+            )
+          else
+            const Icon(
+              Icons.lock_outline,
+              size: 16,
+              color: AppTheme.textMuted,
+            ),
+        ],
       ),
     );
   }

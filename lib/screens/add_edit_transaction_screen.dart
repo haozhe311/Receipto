@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/models/transaction.dart' as model;
+import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/widgets/category_chip.dart';
 
@@ -40,7 +40,13 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     _merchantController = TextEditingController(text: t?.merchant ?? '');
     _noteController = TextEditingController(text: t?.note ?? '');
     _selectedDate = t?.date ?? DateTime.now();
-    _selectedCategory = t?.category ?? 'Others';
+    // Fall back to 'Others' if the stored category was deleted.
+    final knownCategories =
+        context.read<CategoryProvider>().categoryNames;
+    _selectedCategory =
+        (t != null && knownCategories.contains(t.category))
+            ? t.category
+            : 'Others';
   }
 
   @override
@@ -128,11 +134,12 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             Wrap(
               spacing: 0,
               runSpacing: 8,
-              children: AppConstants.categories.map((cat) {
+              children: context.watch<CategoryProvider>().categories.map((cat) {
                 return CategoryChip(
-                  category: cat,
-                  isSelected: _selectedCategory == cat,
-                  onTap: () => setState(() => _selectedCategory = cat),
+                  category: cat.name,
+                  emoji: cat.emoji,
+                  isSelected: _selectedCategory == cat.name,
+                  onTap: () => setState(() => _selectedCategory = cat.name),
                 );
               }).toList(),
             ),

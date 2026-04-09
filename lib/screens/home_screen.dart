@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
 import 'package:receipto/screens/ocr_scan_screen.dart';
@@ -164,6 +165,7 @@ class _CategoryFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final categories = context.watch<CategoryProvider>().categories;
     return SizedBox(
       height: 50,
       child: ListView(
@@ -176,12 +178,13 @@ class _CategoryFilterBar extends StatelessWidget {
             isSelected: selectedCategory == null,
             onTap: () => onCategorySelected(null),
           ),
-          // Category chips
-          ...AppConstants.categories.map(
+          // Dynamic category chips from CategoryProvider
+          ...categories.map(
             (cat) => CategoryChip(
-              category: cat,
-              isSelected: selectedCategory == cat,
-              onTap: () => onCategorySelected(cat),
+              category: cat.name,
+              emoji: cat.emoji,
+              isSelected: selectedCategory == cat.name,
+              onTap: () => onCategorySelected(cat.name),
             ),
           ),
         ],

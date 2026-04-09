@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/backup_screen.dart';
@@ -23,6 +24,7 @@ class ReceiptoApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
       ],
       child: MaterialApp(
         title: AppConstants.appName,
@@ -64,8 +66,12 @@ class _AppShellState extends State<AppShell> {
     if (!mounted) return;
     final txnProvider = context.read<TransactionProvider>();
     final settingsProvider = context.read<SettingsProvider>();
-    await txnProvider.loadTransactions();
-    await settingsProvider.loadSettings();
+    final categoryProvider = context.read<CategoryProvider>();
+    await Future.wait([
+      txnProvider.loadTransactions(),
+      settingsProvider.loadSettings(),
+      categoryProvider.loadCategories(),
+    ]);
   }
 
   @override
