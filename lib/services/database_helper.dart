@@ -13,7 +13,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const String _dbName = 'receipto.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   // Table and column names
   static const String tableTransactions = 'transactions';
@@ -61,6 +61,13 @@ class DatabaseHelper {
         value TEXT NOT NULL
       )
     ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_transactions_date ON $tableTransactions(date)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_transactions_category ON $tableTransactions(category)',
+    );
   }
 
   /// Migrates the database schema between versions.
@@ -69,6 +76,15 @@ class DatabaseHelper {
       // v1 → v2: add payment_method column (existing rows default to 'Cash')
       await db.execute(
         "ALTER TABLE $tableTransactions ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'Cash'",
+      );
+    }
+    if (oldVersion < 3) {
+      // v2 → v3: add indexes for date and category to speed up month queries
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_transactions_date ON $tableTransactions(date)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_transactions_category ON $tableTransactions(category)',
       );
     }
   }
@@ -83,12 +99,14 @@ class DatabaseHelper {
     return await db.insert(tableTransactions, transaction.toMap());
   }
 
-  /// Retrieves transactions with optional category and date range filters.
+  /// Retrieves transactions with optional category, date range, and pagination.
   /// Results are ordered by date descending (most recent first).
   Future<List<model.Transaction>> getTransactions({
     String? category,
     DateTime? from,
     DateTime? to,
+    int? limit,
+    int? offset,
   }) async {
     final db = await database;
 
@@ -113,9 +131,44 @@ class DatabaseHelper {
       where: whereClauses.isNotEmpty ? whereClauses.join(' AND ') : null,
       whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: 'date DESC, created_at DESC',
+      limit: limit,
+      offset: offset,
     );
 
     return result.map((map) => model.Transaction.fromMap(map)).toList();
+  }
+
+  /// Returns the total number of transactions matching the given filters.
+  /// Used by the provider to show an accurate count even with pagination.
+  Future<int> getTransactionCount({
+    String? category,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final db = await database;
+
+    final List<String> whereClauses = [];
+    final List<dynamic> whereArgs = [];
+
+    if (category != null) {
+      whereClauses.add('category = ?');
+      whereArgs.add(category);
+    }
+    if (from != null) {
+      whereClauses.add('date >= ?');
+      whereArgs.add(from.toIso8601String().split('T').first);
+    }
+    if (to != null) {
+      whereClauses.add('date <= ?');
+      whereArgs.add(to.toIso8601String().split('T').first);
+    }
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM $tableTransactions'
+      '${whereClauses.isNotEmpty ? ' WHERE ${whereClauses.join(' AND ')}' : ''}',
+      whereArgs.isNotEmpty ? whereArgs : null,
+    );
+    return (result.first['cnt'] as int);
   }
 
   /// Retrieves the most recent [limit] transactions for AI chatbot context.
@@ -151,19 +204,28 @@ class DatabaseHelper {
   }
 
   /// Returns the total spending for a given month (defaults to current month).
-  Future<double> getMonthlyTotal({DateTime? month}) async {
+  /// Optionally filtered to a single [category].
+  Future<double> getMonthlyTotal({DateTime? month, String? category}) async {
     final db = await database;
     final now = month ?? DateTime.now();
     final firstDay = DateTime(now.year, now.month, 1);
     final lastDay = DateTime(now.year, now.month + 1, 0);
 
+    final whereParts = ['date >= ?', 'date <= ?'];
+    final args = <dynamic>[
+      firstDay.toIso8601String().split('T').first,
+      lastDay.toIso8601String().split('T').first,
+    ];
+
+    if (category != null) {
+      whereParts.add('category = ?');
+      args.add(category);
+    }
+
     final result = await db.rawQuery(
       'SELECT COALESCE(SUM(amount), 0) as total FROM $tableTransactions '
-      'WHERE date >= ? AND date <= ?',
-      [
-        firstDay.toIso8601String().split('T').first,
-        lastDay.toIso8601String().split('T').first,
-      ],
+      'WHERE ${whereParts.join(' AND ')}',
+      args,
     );
     return (result.first['total'] as num).toDouble();
   }
@@ -192,6 +254,54 @@ class DatabaseHelper {
       {'key': key, 'value': value},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // AI context queries
+  // ---------------------------------------------------------------------------
+
+  /// Returns per-category spending grouped by year, newest year first.
+  Future<List<Map<String, dynamic>>> getYearlySummary() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT
+        strftime('%Y', date) AS year,
+        category,
+        SUM(amount) AS total,
+        COUNT(*) AS count
+      FROM $tableTransactions
+      GROUP BY year, category
+      ORDER BY year DESC, total DESC
+    ''');
+  }
+
+  /// Returns per-category spending grouped by month (YYYY-MM), newest first.
+  Future<List<Map<String, dynamic>>> getMonthlySummary() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT
+        strftime('%Y-%m', date) AS month,
+        category,
+        SUM(amount) AS total,
+        COUNT(*) AS count
+      FROM $tableTransactions
+      GROUP BY month, category
+      ORDER BY month DESC, total DESC
+    ''');
+  }
+
+  /// Returns a single-row overview of all transaction data.
+  Future<Map<String, dynamic>> getDataOverview() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT
+        COUNT(*) AS total_transactions,
+        MIN(date) AS earliest_date,
+        MAX(date) AS latest_date,
+        SUM(amount) AS all_time_total
+      FROM $tableTransactions
+    ''');
+    return rows.first;
   }
 
   // ---------------------------------------------------------------------------

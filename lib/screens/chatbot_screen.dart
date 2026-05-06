@@ -1,11 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/services/ai_service.dart';
-import 'package:receipto/services/database_helper.dart';
 
 /// A single message in the chat history.
 class ChatMessage {
@@ -22,8 +19,9 @@ class ChatMessage {
 
 /// AI-powered financial chatbot screen.
 ///
-/// Users ask questions about their spending, and the chatbot responds
-/// based on the most recent 20 transactions injected as JSON context.
+/// Injects yearly summaries, monthly summaries, and recent transactions
+/// as structured JSON context on every message so the AI can answer
+/// questions across any time range.
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
 
@@ -40,14 +38,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   void initState() {
     super.initState();
-    // Welcome message
     _messages.add(
       ChatMessage(
-        text: 'Hi! I\'m your Receipto financial assistant. '
-            'Ask me anything about your recent spending — I\'ll answer based on '
-            'your last 20 transactions.\n\n'
-            'Try: "How much did I spend on food?" or '
-            '"Summarize my spending by category."',
+        text: 'Hi! I\'m your Receipto financial assistant.\n\n'
+            'I have access to your **full transaction history** — yearly summaries, '
+            'monthly breakdowns, and your latest 50 transactions.\n\n'
+            'Try asking:\n'
+            '- "How much did I spend last month?"\n'
+            '- "Compare my spending this year vs last year"\n'
+            '- "Which category do I spend the most on?"',
         isUser: false,
       ),
     );
@@ -102,7 +101,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isLoading) return;
 
-    // Add user message
     setState(() {
       _messages.add(ChatMessage(text: text, isUser: true));
       _isLoading = true;
@@ -110,7 +108,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     _scrollToBottom();
 
-    // Check API key
     final settings = context.read<SettingsProvider>();
     if (!settings.hasApiKey) {
       setState(() {
@@ -128,17 +125,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
 
     try {
-      // Fetch recent transactions and build compact JSON context
-      final transactions =
-          await DatabaseHelper.instance.getRecentTransactions(20);
-      final context = jsonEncode(
-        transactions.map((t) => t.toCompactMap()).toList(),
-      );
-
-      // Call AI service
       final response = await AiService.chat(
         userMessage: text,
-        transactionContext: context,
         apiKey: settings.apiKey!,
         provider: settings.aiProvider,
       );
@@ -196,7 +184,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 }
 
-/// A single chat bubble (user or AI).
+// ── Chat bubble ───────────────────────────────────────────────────────────────
+
 class _ChatBubble extends StatelessWidget {
   final ChatMessage message;
 
@@ -204,7 +193,6 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isUser = message.isUser;
 
     final bgColor = message.isError
@@ -233,7 +221,7 @@ class _ChatBubble extends StatelessWidget {
           if (!isUser)
             CircleAvatar(
               radius: 16,
-              backgroundColor: theme.colorScheme.primary,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(
                 message.isError ? Icons.error_outline : Icons.smart_toy,
                 color: Colors.white,
@@ -243,10 +231,7 @@ class _ChatBubble extends StatelessWidget {
           if (!isUser) const SizedBox(width: 8),
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: BorderRadius.only(
@@ -257,18 +242,25 @@ class _ChatBubble extends StatelessWidget {
                 ),
                 border: Border.all(color: borderColor),
               ),
-              child: SelectableText(
-                message.text,
-                style: TextStyle(color: textColor, fontSize: 14, height: 1.4),
-              ),
+              // User bubbles are plain text; AI bubbles render markdown.
+              child: isUser
+                  ? SelectableText(
+                      message.text,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    )
+                  : _MarkdownText(text: message.text, color: textColor),
             ),
           ),
           if (isUser) const SizedBox(width: 8),
           if (isUser)
-            CircleAvatar(
+            const CircleAvatar(
               radius: 16,
               backgroundColor: AppTheme.border,
-              child: const Icon(Icons.person, color: AppTheme.textPrimary, size: 18),
+              child: Icon(Icons.person, color: AppTheme.textPrimary, size: 18),
             ),
         ],
       ),
@@ -276,20 +268,142 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-/// A three-dot typing indicator shown while waiting for the AI response.
+// ── Inline markdown renderer ──────────────────────────────────────────────────
+
+/// Renders a subset of markdown without any external package:
+/// - **bold**
+/// - *italic*
+/// - Lines starting with "- " or "* " as bullet list items
+/// - Blank lines as paragraph breaks
+class _MarkdownText extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _MarkdownText({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = text.split('\n');
+    final widgets = <Widget>[];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+
+      if (line.trim().isEmpty) {
+        // Blank line → small gap between paragraphs
+        widgets.add(const SizedBox(height: 6));
+        continue;
+      }
+
+      final isBullet = line.startsWith('- ') || line.startsWith('* ');
+      final content  = isBullet ? line.substring(2) : line;
+
+      if (isBullet) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '• ',
+                  style: TextStyle(color: color, fontSize: 14, height: 1.4),
+                ),
+                Flexible(
+                  child: SelectableText.rich(
+                    _buildSpan(content, color),
+                    style: const TextStyle(fontSize: 14, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: SelectableText.rich(
+              _buildSpan(content, color),
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+          ),
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
+    );
+  }
+
+  /// Parses **bold** and *italic* within a single line into a [TextSpan].
+  static TextSpan _buildSpan(String line, Color defaultColor) {
+    final spans = <InlineSpan>[];
+    // Regex: **bold** | *italic*
+    final pattern = RegExp(r'\*\*(.+?)\*\*|\*(.+?)\*');
+    int cursor = 0;
+
+    for (final match in pattern.allMatches(line)) {
+      // Plain text before the match
+      if (match.start > cursor) {
+        spans.add(TextSpan(
+          text: line.substring(cursor, match.start),
+          style: TextStyle(color: defaultColor),
+        ));
+      }
+
+      if (match.group(1) != null) {
+        // **bold**
+        spans.add(TextSpan(
+          text: match.group(1),
+          style: TextStyle(
+            color: defaultColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ));
+      } else if (match.group(2) != null) {
+        // *italic*
+        spans.add(TextSpan(
+          text: match.group(2),
+          style: TextStyle(
+            color: defaultColor,
+            fontStyle: FontStyle.italic,
+          ),
+        ));
+      }
+
+      cursor = match.end;
+    }
+
+    // Remaining plain text
+    if (cursor < line.length) {
+      spans.add(TextSpan(
+        text: line.substring(cursor),
+        style: TextStyle(color: defaultColor),
+      ));
+    }
+
+    return TextSpan(children: spans);
+  }
+}
+
+// ── Typing indicator ──────────────────────────────────────────────────────────
+
 class _TypingIndicator extends StatelessWidget {
   const _TypingIndicator();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: theme.colorScheme.primary,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             child: const Icon(Icons.smart_toy, color: Colors.white, size: 18),
           ),
           const SizedBox(width: 8),
@@ -312,7 +426,8 @@ class _TypingIndicator extends StatelessWidget {
   }
 }
 
-/// The text input bar at the bottom of the chat screen.
+// ── Input bar ─────────────────────────────────────────────────────────────────
+
 class _InputBar extends StatelessWidget {
   final TextEditingController controller;
   final bool isLoading;
@@ -330,9 +445,7 @@ class _InputBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: const BoxDecoration(
         color: AppTheme.navBar,
-        border: Border(
-          top: BorderSide(color: AppTheme.border),
-        ),
+        border: Border(top: BorderSide(color: AppTheme.border)),
       ),
       child: SafeArea(
         top: false,

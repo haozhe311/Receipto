@@ -38,12 +38,88 @@ class BackupService {
     return drive.DriveApi(client);
   }
 
+  /// Silent-only sign-in — never shows a UI prompt.
+  /// Used for auto-backup so the user is never interrupted.
+  static Future<drive.DriveApi?> _getDriveApiSilently() async {
+    GoogleSignInAccount? account = _googleSignIn.currentUser;
+    account ??= await _googleSignIn.signInSilently();
+    if (account == null) return null;
+
+    final authHeaders = await account.authHeaders;
+    final client = _GoogleAuthClient(authHeaders);
+    return drive.DriveApi(client);
+  }
+
   /// Returns the currently signed-in Google account email, or null.
   static String? get currentUserEmail => _googleSignIn.currentUser?.email;
 
-  /// Signs the user out of Google.
+  /// Signs the user out of Google and clears the linked-account flag.
   static Future<void> signOut() async {
     await _googleSignIn.signOut();
+    await DatabaseHelper.instance.setSetting(settingAccountLinked, 'false');
+  }
+
+  // Settings-table keys used by auto-backup (public so BackupScreen can read them).
+  static const String settingAutoEnabled   = 'auto_backup_enabled';
+  static const String settingLastTimestamp = 'last_backup_timestamp';
+  static const String settingAccountLinked = 'google_account_connected';
+
+  /// Runs a silent background backup if all conditions are met:
+  ///   1. Auto-backup is enabled (default: true).
+  ///   2. A Google account is linked.
+  ///   3. More than 24 hours have passed since the last backup.
+  ///
+  /// Returns true if a backup was actually performed, false if skipped.
+  /// Throws if the backup itself fails (caller decides how to surface it).
+  static Future<bool> autoBackup() async {
+    final db = DatabaseHelper.instance;
+
+    // 1. Check enabled flag (treat missing value as enabled).
+    final enabledRaw = await db.getSetting(settingAutoEnabled);
+    if (enabledRaw == 'false') { return false; }
+
+    // 2. Check whether a Google account has been linked.
+    final linked = await db.getSetting(settingAccountLinked);
+    if (linked != 'true') { return false; }
+
+    // 3. Check 24-hour interval.
+    final tsRaw = await db.getSetting(settingLastTimestamp);
+    if (tsRaw != null) {
+      final last = DateTime.tryParse(tsRaw);
+      if (last != null &&
+          DateTime.now().difference(last) < const Duration(hours: 24)) {
+        return false;
+      }
+    }
+
+    // All conditions met — run a silent backup.
+    final driveApi = await _getDriveApiSilently();
+    if (driveApi == null) { return false; } // Token refresh failed silently.
+
+    final jsonString = await db.getAllTransactionsAsJson();
+    final bytes = utf8.encode(jsonString);
+    final now = DateTime.now();
+    final fileName =
+        '$_backupFilePrefix${DateFormat('yyyy-MM-dd_HHmmss').format(now)}.json';
+
+    final fileMetadata = drive.File()
+      ..name = fileName
+      ..mimeType = _backupMimeType;
+
+    final media = drive.Media(
+      Stream.value(bytes),
+      bytes.length,
+      contentType: _backupMimeType,
+    );
+
+    await driveApi.files.create(fileMetadata, uploadMedia: media);
+
+    // Persist both the generic last-backup-date and the auto-backup timestamp.
+    final isoNow = now.toIso8601String();
+    await db.setSetting('last_backup_date', isoNow);
+    await db.setSetting(settingLastTimestamp, isoNow);
+
+    return true;
   }
 
   /// Exports all transactions and uploads the JSON file to Google Drive.
@@ -76,9 +152,11 @@ class BackupService {
 
     await driveApi.files.create(fileMetadata, uploadMedia: media);
 
-    // Save timestamp to settings
-    await DatabaseHelper.instance
-        .setSetting('last_backup_date', now.toIso8601String());
+    // Persist backup timestamps and mark account as connected.
+    final isoNow = now.toIso8601String();
+    await DatabaseHelper.instance.setSetting('last_backup_date', isoNow);
+    await DatabaseHelper.instance.setSetting(settingLastTimestamp, isoNow);
+    await DatabaseHelper.instance.setSetting(settingAccountLinked, 'true');
 
     return true;
   }

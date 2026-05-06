@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
+import 'package:receipto/screens/backup_screen.dart';
 import 'package:receipto/screens/manage_categories_screen.dart';
 import 'package:receipto/screens/manage_payment_methods_screen.dart';
 
@@ -257,7 +258,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 3. HOW TO GET AN API KEY ───────────────────────────────
+              // ── 3. DATA ────────────────────────────────────────────────
+              const _SectionHeader(title: 'Data'),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.cloud_outlined,
+                title: 'Backup & Restore',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BackupScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── 4. HOW TO GET AN API KEY ───────────────────────────────
               const _SectionHeader(title: 'How to get an API key'),
               const SizedBox(height: 8),
               _InstructionCard(
@@ -295,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 4. ABOUT ───────────────────────────────────────────────
+              // ── 5. ABOUT ───────────────────────────────────────────────
               const _SectionHeader(title: 'About'),
               const SizedBox(height: 8),
               Card(

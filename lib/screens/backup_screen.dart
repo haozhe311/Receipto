@@ -8,9 +8,6 @@ import 'package:receipto/services/backup_service.dart';
 import 'package:receipto/services/database_helper.dart';
 
 /// Screen for backing up and restoring transactions via Google Drive.
-///
-/// All actions are user-triggered — no automatic/scheduled sync.
-/// Data is exported as a JSON file to the user's own Google Drive.
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
 
@@ -22,18 +19,36 @@ class _BackupScreenState extends State<BackupScreen> {
   bool _isBackingUp = false;
   bool _isRestoring = false;
   DateTime? _lastBackupDate;
+  DateTime? _lastAutoBackupDate;
+  bool _autoBackupEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _loadLastBackupDate();
+    _loadSettings();
   }
 
-  Future<void> _loadLastBackupDate() async {
-    final raw = await DatabaseHelper.instance.getSetting('last_backup_date');
-    if (raw != null && mounted) {
-      setState(() => _lastBackupDate = DateTime.tryParse(raw));
+  Future<void> _loadSettings() async {
+    final db = DatabaseHelper.instance;
+    final backupRaw  = await db.getSetting('last_backup_date');
+    final autoRaw    = await db.getSetting(BackupService.settingLastTimestamp);
+    final enabledRaw = await db.getSetting(BackupService.settingAutoEnabled);
+
+    if (mounted) {
+      setState(() {
+        _lastBackupDate     = backupRaw != null ? DateTime.tryParse(backupRaw) : null;
+        _lastAutoBackupDate = autoRaw   != null ? DateTime.tryParse(autoRaw)   : null;
+        _autoBackupEnabled  = enabledRaw != 'false';
+      });
     }
+  }
+
+  Future<void> _setAutoBackup(bool value) async {
+    await DatabaseHelper.instance.setSetting(
+      BackupService.settingAutoEnabled,
+      value.toString(),
+    );
+    if (mounted) setState(() => _autoBackupEnabled = value);
   }
 
   @override
@@ -47,7 +62,42 @@ class _BackupScreenState extends State<BackupScreen> {
           _InfoCard(),
           const SizedBox(height: 16),
 
-          // Last backup status
+          // Auto-backup toggle
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  value: _autoBackupEnabled,
+                  onChanged: _setAutoBackup,
+                  activeColor: AppTheme.gold,
+                  title: const Text(
+                    'Auto-backup (every 24 hours)',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _lastAutoBackupDate != null
+                        ? 'Last auto-backup: ${DateFormat('dd MMM yyyy, h:mm a').format(_lastAutoBackupDate!)}'
+                        : 'Auto-backup: never run yet',
+                    style: const TextStyle(
+                      color: Color(0xFF8888AA),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Last manual backup status
           _LastBackupCard(lastBackupDate: _lastBackupDate),
           const SizedBox(height: 16),
 
@@ -99,7 +149,7 @@ class _BackupScreenState extends State<BackupScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Signed in account
+          // Signed-in account
           if (BackupService.currentUserEmail != null)
             ListTile(
               leading: const Icon(Icons.account_circle),
@@ -126,15 +176,13 @@ class _BackupScreenState extends State<BackupScreen> {
       if (!mounted) return;
 
       if (success) {
-        await _loadLastBackupDate();
+        await _loadSettings();
         _showSnackBar('Backup successful!', Colors.green);
       } else {
         _showSnackBar('Backup cancelled', Colors.orange);
       }
     } catch (e) {
-      if (mounted) {
-        _showSnackBar('Backup failed: $e', Colors.red);
-      }
+      if (mounted) _showSnackBar('Backup failed: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isBackingUp = false);
     }
@@ -148,7 +196,10 @@ class _BackupScreenState extends State<BackupScreen> {
       if (!mounted) return;
 
       if (backups.isEmpty) {
-        _showSnackBar('No backup files found in your Google Drive', Colors.orange);
+        _showSnackBar(
+          'No backup files found in your Google Drive',
+          Colors.orange,
+        );
         return;
       }
 
@@ -164,8 +215,10 @@ class _BackupScreenState extends State<BackupScreen> {
         builder: (ctx) => AlertDialog(
           title: const Text('Restore Backup?'),
           content: Text(
-            'This will REPLACE all ${context.read<TransactionProvider>().transactionCount} current transactions '
-            'with the data from "${selected.name}".\n\nThis cannot be undone.',
+            'This will REPLACE all '
+            '${context.read<TransactionProvider>().transactionCount} '
+            'current transactions with the data from '
+            '"${selected.name}".\n\nThis cannot be undone.',
           ),
           actions: [
             TextButton(
@@ -186,15 +239,12 @@ class _BackupScreenState extends State<BackupScreen> {
       await BackupService.restore(selected.id!);
       if (!mounted) return;
 
-      // Refresh the transaction list on the home screen
       await context.read<TransactionProvider>().loadTransactions();
       if (!mounted) return;
 
       _showSnackBar('Restore successful!', Colors.green);
     } catch (e) {
-      if (mounted) {
-        _showSnackBar('Restore failed: $e', Colors.red);
-      }
+      if (mounted) _showSnackBar('Restore failed: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isRestoring = false);
     }
@@ -207,7 +257,8 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 }
 
-/// Informational card at the top of the backup screen.
+// ── Static widgets ─────────────────────────────────────────────────────────────
+
 class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -226,8 +277,7 @@ class _InfoCard extends StatelessWidget {
           Expanded(
             child: Text(
               'Backups are saved as JSON files to your own Google Drive. '
-              'Your data never passes through any third-party server. '
-              'All actions are manual — there is no automatic sync.',
+              'Your data never passes through any third-party server.',
               style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
             ),
           ),
@@ -237,10 +287,8 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-/// Shows the timestamp of the most recent backup.
 class _LastBackupCard extends StatelessWidget {
   final DateTime? lastBackupDate;
-
   const _LastBackupCard({required this.lastBackupDate});
 
   @override
@@ -262,10 +310,8 @@ class _LastBackupCard extends StatelessWidget {
   }
 }
 
-/// Bottom sheet listing available backup files for restoration.
 class _BackupListSheet extends StatelessWidget {
   final List<drive.File> backups;
-
   const _BackupListSheet({required this.backups});
 
   @override

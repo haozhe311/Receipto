@@ -65,8 +65,38 @@ void _showScanSourceSheet(BuildContext context) {
 }
 
 /// The main dashboard screen showing spending summary and transaction list.
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+  DateTime? _lastSeenMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final provider = context.read<TransactionProvider>();
+    // Don't trigger loadMore while the main load is still running.
+    if (provider.isLoading) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      provider.loadMoreTransactions();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +113,16 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Consumer<TransactionProvider>(
         builder: (context, provider, _) {
+          // Scroll to top whenever the user navigates to a different month.
+          if (_lastSeenMonth != provider.selectedMonth) {
+            _lastSeenMonth = provider.selectedMonth;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollController.hasClients) {
+                _scrollController.jumpTo(0);
+              }
+            });
+          }
+
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -91,12 +131,13 @@ class HomeScreen extends StatelessWidget {
             children: [
               // Spending summary card with month navigator
               SummaryCard(
-                monthlyTotal: provider.monthlyTotal,
+                monthlyTotal: provider.displayTotal,
                 transactionCount: provider.transactionCount,
                 selectedMonth: provider.selectedMonth,
                 isCurrentMonth: provider.isCurrentMonth,
                 onPreviousMonth: () => provider.navigateMonth(-1),
                 onNextMonth: () => provider.navigateMonth(1),
+                selectedCategory: provider.selectedCategory,
               ),
 
               // Category filter chips
@@ -110,9 +151,30 @@ class HomeScreen extends StatelessWidget {
                 child: provider.transactions.isEmpty
                     ? const EmptyState()
                     : ListView.builder(
+                        controller: _scrollController,
                         padding: const EdgeInsets.only(bottom: 80),
-                        itemCount: provider.transactions.length,
+                        // +1 for the bottom loading indicator slot
+                        itemCount: provider.transactions.length + 1,
                         itemBuilder: (context, index) {
+                          // Last slot: loading indicator or end spacer
+                          if (index == provider.transactions.length) {
+                            if (provider.isLoadingMore) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          }
+
                           final transaction = provider.transactions[index];
                           return TransactionTile(
                             transaction: transaction,

@@ -12,6 +12,7 @@ class SummaryCard extends StatelessWidget {
   final bool isCurrentMonth;
   final VoidCallback onPreviousMonth;
   final VoidCallback onNextMonth;
+  final String? selectedCategory;
 
   const SummaryCard({
     super.key,
@@ -21,6 +22,7 @@ class SummaryCard extends StatelessWidget {
     required this.isCurrentMonth,
     required this.onPreviousMonth,
     required this.onNextMonth,
+    this.selectedCategory,
   });
 
   @override
@@ -94,7 +96,9 @@ class SummaryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'TOTAL SPENDING',
+                  selectedCategory != null
+                      ? '${selectedCategory!.toUpperCase()} SPENDING'
+                      : 'TOTAL SPENDING',
                   style: TextStyle(
                     color: AppTheme.textMuted,
                     fontSize: 11,
@@ -114,7 +118,9 @@ class SummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$transactionCount transaction${transactionCount == 1 ? '' : 's'} this month',
+                  selectedCategory != null
+                      ? '$transactionCount transaction${transactionCount == 1 ? '' : 's'} in $selectedCategory'
+                      : '$transactionCount transaction${transactionCount == 1 ? '' : 's'} this month',
                   style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
                 ),
               ],

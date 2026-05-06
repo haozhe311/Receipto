@@ -6,10 +6,10 @@ import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/payment_method_provider.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
-import 'package:receipto/screens/backup_screen.dart';
 import 'package:receipto/screens/chatbot_screen.dart';
 import 'package:receipto/screens/home_screen.dart';
 import 'package:receipto/screens/settings_screen.dart';
+import 'package:receipto/services/backup_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,11 +49,10 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
-  // All four main tab screens.
+  // The three main tab screens.
   final List<Widget> _screens = const [
     HomeScreen(),
     ChatbotScreen(),
-    BackupScreen(),
     SettingsScreen(),
   ];
 
@@ -76,6 +75,29 @@ class _AppShellState extends State<AppShell> {
       categoryProvider.loadCategories(),
       paymentMethodProvider.loadMethods(),
     ]);
+
+    // Fire-and-forget auto-backup — never blocks the UI.
+    _runAutoBackup();
+  }
+
+  /// Runs auto-backup silently after app load.
+  /// Only shows feedback on failure.
+  void _runAutoBackup() {
+    BackupService.autoBackup().catchError((Object e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Auto-backup failed. Check your Google Drive '
+              'connection in Backup settings.',
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      return false;
+    });
   }
 
   @override
@@ -107,11 +129,6 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.smart_toy_outlined),
             selectedIcon: Icon(Icons.smart_toy),
             label: 'Chat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.cloud_upload_outlined),
-            selectedIcon: Icon(Icons.cloud_upload),
-            label: 'Backup',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
