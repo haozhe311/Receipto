@@ -1,68 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
-import 'package:receipto/screens/ocr_scan_screen.dart';
 import 'package:receipto/widgets/category_chip.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/summary_card.dart';
 import 'package:receipto/widgets/transaction_tile.dart';
-
-/// Shows a bottom sheet so the user can choose between camera and gallery
-/// before navigating to [OcrScanScreen].
-void _showScanSourceSheet(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              'Scan Receipt',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-          ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.camera_alt)),
-            title: const Text('Take Photo'),
-            subtitle: const Text('Open the device camera'),
-            onTap: () {
-              Navigator.of(ctx).pop();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const OcrScanScreen(initialSource: ImageSource.camera),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.photo_library)),
-            title: const Text('Choose from Gallery'),
-            subtitle: const Text('Pick an existing photo'),
-            onTap: () {
-              Navigator.of(ctx).pop();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const OcrScanScreen(initialSource: ImageSource.gallery),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    ),
-  );
-}
 
 /// The main dashboard screen showing spending summary and transaction list.
 class HomeScreen extends StatefulWidget {
@@ -103,13 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.camera_alt),
-            tooltip: 'Scan Receipt',
-            onPressed: () => _showScanSourceSheet(context),
-          ),
-        ],
       ),
       body: Consumer<TransactionProvider>(
         builder: (context, provider, _) {
@@ -139,6 +79,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 onNextMonth: () => provider.navigateMonth(1),
                 selectedCategory: provider.selectedCategory,
               ),
+
+              // Cash-flow strip (only in the unfiltered month view)
+              if (provider.selectedCategory == null)
+                _CashFlowStrip(
+                  income: provider.monthlyIncome,
+                  expense: provider.monthlyTotal,
+                  net: provider.netSavings,
+                ),
 
               // Category filter chips
               _CategoryFilterBar(
@@ -210,6 +158,92 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(14),
         ),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+/// A compact three-cell strip showing the month's income, expenses, and net.
+class _CashFlowStrip extends StatelessWidget {
+  final double income;
+  final double expense;
+  final double net;
+
+  const _CashFlowStrip({
+    required this.income,
+    required this.expense,
+    required this.net,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.currency(
+      locale: AppConstants.currencyLocale,
+      symbol: AppConstants.currencySymbol,
+    );
+    const income400 = Color(0xFF4CAF50);
+    final netColor = net >= 0 ? income400 : const Color(0xFFFF6B6B);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Row(
+        children: [
+          _cell(context, 'Income', fmt.format(income), income400),
+          const SizedBox(width: 8),
+          _cell(context, 'Expenses', fmt.format(expense), AppTheme.gold),
+          const SizedBox(width: 8),
+          _cell(
+            context,
+            'Net',
+            '${net >= 0 ? '+' : '-'}${fmt.format(net.abs())}',
+            netColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cell(
+    BuildContext context,
+    String label,
+    String value,
+    Color valueColor,
+  ) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: TextStyle(
+                  color: valueColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

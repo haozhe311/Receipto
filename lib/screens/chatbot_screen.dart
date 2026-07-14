@@ -129,6 +129,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         userMessage: text,
         apiKey: settings.apiKey!,
         provider: settings.aiProvider,
+        groqModel: settings.groqModel,
       );
 
       setState(() {

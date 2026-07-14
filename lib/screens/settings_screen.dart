@@ -5,8 +5,12 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/screens/backup_screen.dart';
+import 'package:receipto/screens/budgets_screen.dart';
+import 'package:receipto/screens/goals_screen.dart';
 import 'package:receipto/screens/manage_categories_screen.dart';
-import 'package:receipto/screens/manage_payment_methods_screen.dart';
+import 'package:receipto/screens/recurring_screen.dart';
+import 'package:receipto/screens/subscriptions_screen.dart';
+import 'package:receipto/screens/wallets_screen.dart';
 
 /// Settings screen.
 ///
@@ -93,13 +97,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'gemini' => 'Using Google Gemini 2.0 Flash-Lite',
                   'openai' => 'Using OpenAI GPT-4o Mini',
                   'groq'   =>
-                    'Using Groq — Llama 3.1 8B Instant (Free, works in Malaysia)',
+                    'Using Groq (Free, works in Malaysia)',
                   _        => '',
                 },
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.textMuted,
                     ),
               ),
+
+              // Groq model selector
+              if (provider == 'groq') ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Groq model',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textMuted,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: SettingsProvider.groqLlama,
+                      label: Text('Llama 3.1 8B'),
+                    ),
+                    ButtonSegment(
+                      value: SettingsProvider.groqGptOss,
+                      label: Text('GPT OSS 120B'),
+                    ),
+                  ],
+                  selected: {settings.groqModel},
+                  onSelectionChanged: (selected) =>
+                      settings.setGroqModel(selected.first),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  settings.groqModel == SettingsProvider.groqGptOss
+                      ? 'GPT OSS 120B — larger, more accurate, a little slower'
+                      : 'Llama 3.1 8B — fastest, lightweight',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textMuted,
+                      ),
+                ),
+              ],
               const SizedBox(height: 20),
 
               // ── API KEYS ───────────────────────────────────────────────
@@ -245,20 +285,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // ── 3. PLANNING ────────────────────────────────────────────
+              const _SectionHeader(title: 'Planning'),
               const SizedBox(height: 8),
               _NavTile(
-                icon: Icons.credit_card,
-                title: 'Manage Payment Methods',
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Budgets',
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const ManagePaymentMethodsScreen(),
+                    builder: (_) => const BudgetsScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.savings_outlined,
+                title: 'Savings Goals',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GoalsScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.autorenew,
+                title: 'Recurring Transactions',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RecurringScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.subscriptions_outlined,
+                title: 'Subscriptions',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SubscriptionsScreen(),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // ── 3. DATA ────────────────────────────────────────────────
+              // ── 4. ACCOUNTS ────────────────────────────────────────────
+              const _SectionHeader(title: 'Accounts'),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.account_balance_wallet,
+                title: 'Wallets & Balances',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const WalletsScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── 5. DATA ────────────────────────────────────────────────
               const _SectionHeader(title: 'Data'),
               const SizedBox(height: 8),
               _NavTile(
@@ -273,7 +365,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 4. HOW TO GET AN API KEY ───────────────────────────────
+              // ── 6. HOW TO GET AN API KEY ───────────────────────────────
               const _SectionHeader(title: 'How to get an API key'),
               const SizedBox(height: 8),
               _InstructionCard(
@@ -311,7 +403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 5. ABOUT ───────────────────────────────────────────────
+              // ── 7. ABOUT ───────────────────────────────────────────────
               const _SectionHeader(title: 'About'),
               const SizedBox(height: 8),
               Card(

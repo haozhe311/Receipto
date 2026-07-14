@@ -27,12 +27,17 @@ class TransactionTile extends StatelessWidget {
       symbol: AppConstants.currencySymbol,
     );
     final dateFormat = DateFormat('dd MMM yyyy');
-    final icon = AppConstants.categoryIcons[transaction.category] ??
-        Icons.more_horiz;
-    final color = AppConstants.categoryColors[transaction.category] ??
-        Colors.grey;
-    final tint = AppConstants.categoryDarkTints[transaction.category] ??
-        AppTheme.surface;
+    final isIncome = transaction.isIncome;
+    final icon = isIncome
+        ? Icons.savings
+        : (AppConstants.categoryIcons[transaction.category] ?? Icons.more_horiz);
+    final color = isIncome
+        ? const Color(0xFF4CAF50)
+        : (AppConstants.categoryColors[transaction.category] ?? Colors.grey);
+    final tint = isIncome
+        ? const Color(0xFF16281A)
+        : (AppConstants.categoryDarkTints[transaction.category] ??
+            AppTheme.surface);
 
     return Dismissible(
       key: ValueKey(transaction.id),
@@ -113,11 +118,14 @@ class TransactionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // Amount
+              // Amount — income shows green with a leading '+'.
               Text(
-                currencyFormat.format(transaction.amount),
-                style: const TextStyle(
-                  color: AppTheme.gold,
+                '${transaction.isIncome ? '+' : ''}'
+                '${currencyFormat.format(transaction.amount)}',
+                style: TextStyle(
+                  color: transaction.isIncome
+                      ? const Color(0xFF4CAF50)
+                      : AppTheme.gold,
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),

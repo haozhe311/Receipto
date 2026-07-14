@@ -17,6 +17,7 @@ class TransactionProvider extends ChangeNotifier {
   int _loadedPages = 0;
   String? _selectedCategory;
   double _monthlyTotal = 0;
+  double _monthlyIncome = 0;
   double? _filteredTotal;
   int _monthlyCount = 0;
 
@@ -29,6 +30,10 @@ class TransactionProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String? get selectedCategory => _selectedCategory;
   double get monthlyTotal => _monthlyTotal;
+  /// Total income for the selected month.
+  double get monthlyIncome => _monthlyIncome;
+  /// Net cash flow for the selected month (income − expenses).
+  double get netSavings => _monthlyIncome - _monthlyTotal;
   /// Total for the active category filter, or the full month total when no filter.
   double get displayTotal => _selectedCategory != null ? (_filteredTotal ?? 0) : _monthlyTotal;
   int get transactionCount => _monthlyCount;
@@ -42,14 +47,16 @@ class TransactionProvider extends ChangeNotifier {
     return _selectedMonth.year == now.year && _selectedMonth.month == now.month;
   }
 
-  /// Total spending across all loaded transactions.
-  double get totalSpending =>
-      _transactions.fold(0, (sum, t) => sum + t.amount);
+  /// Total expense spending across all loaded transactions (income excluded).
+  double get totalSpending => _transactions
+      .where((t) => !t.isIncome)
+      .fold(0, (sum, t) => sum + t.amount);
 
-  /// Spending grouped by category from the loaded transactions.
+  /// Expense spending grouped by category from the loaded transactions.
   Map<String, double> get spendingByCategory {
     final map = <String, double>{};
     for (final t in _transactions) {
+      if (t.isIncome) continue;
       map[t.category] = (map[t.category] ?? 0) + t.amount;
     }
     return map;
@@ -98,6 +105,7 @@ class TransactionProvider extends ChangeNotifier {
           from: firstDay,
           to: lastDay,
         ),
+        db.getMonthlyIncome(month: _selectedMonth),
         if (_selectedCategory != null)
           db.getMonthlyTotal(month: _selectedMonth, category: _selectedCategory),
       ];
@@ -106,7 +114,8 @@ class TransactionProvider extends ChangeNotifier {
       _transactions = results[0] as List<model.Transaction>;
       _monthlyTotal = results[1] as double;
       _monthlyCount = (results[2] as num).toInt();
-      _filteredTotal = _selectedCategory != null ? results[3] as double : null;
+      _monthlyIncome = results[3] as double;
+      _filteredTotal = _selectedCategory != null ? results[4] as double : null;
       _loadedPages = 1;
       _hasMore = _transactions.length < _monthlyCount;
     } finally {

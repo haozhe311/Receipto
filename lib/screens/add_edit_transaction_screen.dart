@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/models/transaction.dart' as model;
+import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
-import 'package:receipto/providers/payment_method_provider.dart';
+import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
+import 'package:receipto/screens/split_screen.dart';
+import 'package:receipto/services/ai_service.dart';
+import 'package:receipto/services/ocr_service.dart';
 import 'package:receipto/widgets/category_chip.dart';
 import 'package:receipto/widgets/payment_method_chip.dart';
 
@@ -30,8 +35,15 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   late DateTime _selectedDate;
   late String _selectedCategory;
   late String _selectedPaymentMethod;
+  late String _type; // 'expense' or 'income'
+
+  final _ocrService = OcrService();
+  final _imagePicker = ImagePicker();
+  bool _isScanning = false;
+  late bool _scannedViaOcr;
 
   bool get _isEditing => widget.transaction != null;
+  bool get _isIncome => _type == 'income';
 
   @override
   void initState() {
@@ -43,6 +55,8 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     _merchantController = TextEditingController(text: t?.merchant ?? '');
     _noteController = TextEditingController(text: t?.note ?? '');
     _selectedDate = t?.date ?? DateTime.now();
+    _type = t?.type ?? 'expense';
+    _scannedViaOcr = t?.isOcr ?? false;
 
     // Fall back to 'Others' if the stored category was deleted.
     final knownCategories = context.read<CategoryProvider>().categoryNames;
@@ -51,12 +65,13 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ? t.category
             : 'Others';
 
-    // Fall back to 'Cash' if the stored payment method was deleted.
-    final knownMethods = context.read<PaymentMethodProvider>().methods;
+    // Payment method now maps to an account. Fall back to the first account
+    // (or 'Cash') if the stored one no longer exists.
+    final accountNames = context.read<AccountProvider>().accountNames;
     _selectedPaymentMethod =
-        (t != null && knownMethods.contains(t.paymentMethod))
+        (t != null && accountNames.contains(t.paymentMethod))
             ? t.paymentMethod
-            : 'Cash';
+            : (accountNames.isNotEmpty ? accountNames.first : 'Cash');
   }
 
   @override
@@ -73,6 +88,18 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Transaction' : 'Add Transaction'),
         actions: [
+          if (!_isIncome)
+            IconButton(
+              icon: const Icon(Icons.document_scanner),
+              tooltip: 'Scan Receipt',
+              onPressed: _isScanning ? null : _showScanSourceSheet,
+            ),
+          if (!_isIncome)
+            IconButton(
+              icon: const Icon(Icons.call_split),
+              tooltip: 'Split by Items',
+              onPressed: _openSplit,
+            ),
           if (_isEditing)
             IconButton(
               icon: const Icon(Icons.delete),
@@ -81,11 +108,34 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+      body: Stack(
+        children: [
+          Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+            // Expense / Income toggle
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'expense',
+                  label: Text('Expense'),
+                  icon: Icon(Icons.arrow_upward),
+                ),
+                ButtonSegment(
+                  value: 'income',
+                  label: Text('Income'),
+                  icon: Icon(Icons.arrow_downward),
+                ),
+              ],
+              selected: {_type},
+              onSelectionChanged: (selected) {
+                setState(() => _type = selected.first);
+              },
+            ),
+            const SizedBox(height: 20),
+
             // Amount field
             TextFormField(
               controller: _amountController,
@@ -109,17 +159,21 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Merchant field
+            // Merchant / source field (label depends on type)
             TextFormField(
               controller: _merchantController,
-              decoration: const InputDecoration(
-                labelText: 'Merchant',
-                hintText: 'e.g. KFC, Grab, Uniqlo',
+              decoration: InputDecoration(
+                labelText: _isIncome ? 'Source' : 'Merchant',
+                hintText: _isIncome
+                    ? 'e.g. Salary, Freelance, Allowance'
+                    : 'e.g. KFC, Grab, Uniqlo',
               ),
               textCapitalization: TextCapitalization.words,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a merchant name';
+                  return _isIncome
+                      ? 'Please enter an income source'
+                      : 'Please enter a merchant name';
                 }
                 return null;
               },
@@ -152,17 +206,17 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Payment method selector
-            Text('Payment Method', style: Theme.of(context).textTheme.titleSmall),
+            // Account selector (accounts double as payment methods)
+            Text('Account', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 0,
               runSpacing: 8,
-              children: context.watch<PaymentMethodProvider>().methods.map((m) {
+              children: context.watch<AccountProvider>().accounts.map((a) {
                 return PaymentMethodChip(
-                  method: m,
-                  isSelected: _selectedPaymentMethod == m,
-                  onTap: () => setState(() => _selectedPaymentMethod = m),
+                  method: a.name,
+                  isSelected: _selectedPaymentMethod == a.name,
+                  onTap: () => setState(() => _selectedPaymentMethod = a.name),
                 );
               }).toList(),
             ),
@@ -191,8 +245,17 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
                 ),
               ),
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+          if (_isScanning)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x99000000),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -212,7 +275,8 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
       amount: amount,
       category: _selectedCategory,
       paymentMethod: _selectedPaymentMethod,
-      isOcr: widget.transaction?.isOcr ?? false,
+      type: _type,
+      isOcr: _scannedViaOcr,
       note: note.isNotEmpty ? note : null,
       createdAt: widget.transaction?.createdAt,
     );
@@ -226,6 +290,137 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     }
 
     if (mounted) { Navigator.of(context).pop(); }
+  }
+
+  // ── Receipt scanning ────────────────────────────────────────────────────────
+
+  /// Bottom sheet to choose camera or gallery, then run OCR.
+  void _showScanSourceSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Scan Receipt',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.camera_alt)),
+              title: const Text('Take Photo'),
+              subtitle: const Text('Open the device camera'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _scanReceipt(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.photo_library)),
+              title: const Text('Choose from Gallery'),
+              subtitle: const Text('Pick an existing photo'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _scanReceipt(ImageSource.gallery);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Captures/picks an image, runs OCR, and fills the form fields. When an AI
+  /// key is configured, the OCR text is parsed by the LLM (much more accurate
+  /// across layouts); otherwise it falls back to the on-device regex parser.
+  Future<void> _scanReceipt(ImageSource source) async {
+    // Read AI settings before any await gap.
+    final settings = context.read<SettingsProvider>();
+    final apiKey = settings.hasApiKey ? settings.apiKey : null;
+    final aiProvider = settings.aiProvider;
+    final groqModel = settings.groqModel;
+
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 90,
+    );
+    if (picked == null) return;
+
+    setState(() => _isScanning = true);
+    try {
+      final rawText = await _ocrService.recognizeText(picked.path);
+      ReceiptData data = _ocrService.parseReceipt(rawText);
+      var usedAi = false;
+      if (apiKey != null) {
+        final ai = await AiService.parseReceipt(
+          rawText: rawText,
+          apiKey: apiKey,
+          provider: aiProvider,
+          groqModel: groqModel,
+        );
+        if (ai != null) {
+          data = ai;
+          usedAi = true;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        if (data.amount != null) {
+          _amountController.text = data.amount!.toStringAsFixed(2);
+        }
+        if (data.merchant != null && data.merchant!.isNotEmpty) {
+          _merchantController.text = data.merchant!;
+        }
+        if (data.date != null) _selectedDate = data.date!;
+        _scannedViaOcr = true;
+        _isScanning = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(usedAi
+              ? 'Receipt read by AI — review and correct the details.'
+              : 'Receipt scanned — review and correct the details.'),
+          backgroundColor: const Color(0xFF2E7D32),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isScanning = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not read the receipt: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // ── Split by items ──────────────────────────────────────────────────────────
+
+  /// Opens the itemised bill splitter; on return, fills the amount with the
+  /// user's computed share (and merchant/date if the receipt was scanned there).
+  Future<void> _openSplit() async {
+    final result = await Navigator.push<SplitResult>(
+      context,
+      MaterialPageRoute(builder: (_) => const SplitScreen()),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (result.share > 0) {
+        _amountController.text = result.share.toStringAsFixed(2);
+      }
+      if (result.merchant != null && result.merchant!.isNotEmpty) {
+        _merchantController.text = result.merchant!;
+      }
+      if (result.date != null) _selectedDate = result.date!;
+      _type = 'expense';
+    });
   }
 
   /// Shows a confirmation dialog before deleting the transaction.

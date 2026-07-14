@@ -6,6 +6,11 @@ class Transaction {
   final double amount;
   final String category;
   final String paymentMethod;
+
+  /// Either 'expense' (money out) or 'income' (money in). Defaults to 'expense'
+  /// so pre-income backups and older rows remain valid.
+  final String type;
+
   final bool isOcr;
   final String? note;
   final DateTime createdAt;
@@ -17,10 +22,14 @@ class Transaction {
     required this.amount,
     required this.category,
     this.paymentMethod = 'Cash',
+    this.type = 'expense',
     this.isOcr = false,
     this.note,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
+
+  /// True when this transaction is income (money in) rather than a spend.
+  bool get isIncome => type == 'income';
 
   /// Converts this Transaction to a Map for SQLite insertion.
   Map<String, dynamic> toMap() {
@@ -31,6 +40,7 @@ class Transaction {
       'amount': amount,
       'category': category,
       'payment_method': paymentMethod,
+      'type': type,
       'is_ocr': isOcr ? 1 : 0,
       'note': note,
       'created_at': createdAt.toIso8601String(),
@@ -46,6 +56,7 @@ class Transaction {
       amount: (map['amount'] as num).toDouble(),
       category: map['category'] as String,
       paymentMethod: (map['payment_method'] as String?) ?? 'Cash',
+      type: (map['type'] as String?) ?? 'expense',
       isOcr: (map['is_ocr'] as int) == 1,
       note: map['note'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
@@ -60,6 +71,7 @@ class Transaction {
     double? amount,
     String? category,
     String? paymentMethod,
+    String? type,
     bool? isOcr,
     String? note,
     DateTime? createdAt,
@@ -71,6 +83,7 @@ class Transaction {
       amount: amount ?? this.amount,
       category: category ?? this.category,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      type: type ?? this.type,
       isOcr: isOcr ?? this.isOcr,
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
@@ -85,6 +98,7 @@ class Transaction {
       'amount': amount,
       'category': category,
       'payment_method': paymentMethod,
+      'type': type,
     };
   }
 }

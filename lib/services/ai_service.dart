@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:receipto/services/database_helper.dart';
+import 'package:receipto/services/ocr_service.dart';
 
 /// Classifies the user's query so only relevant data is injected.
 enum QueryType { yearly, yearlyMonth, monthly, recent, general }
@@ -30,6 +31,7 @@ class AiService {
     required String userMessage,
     required String apiKey,
     required String provider,
+    String groqModel = 'llama-3.1-8b-instant',
   }) async {
     final queryType = _classifyQuery(userMessage);
     final systemPrompt = await _buildSystemPrompt(userMessage, queryType);
@@ -52,7 +54,7 @@ class AiService {
     } else if (provider == 'groq') {
       return _callOpenAiCompatible(
         endpoint: _groqEndpoint,
-        model: 'llama-3.1-8b-instant',
+        model: groqModel,
         systemPrompt: systemPrompt,
         userMessage: userMessage,
         apiKey: apiKey,
@@ -60,6 +62,122 @@ class AiService {
       );
     } else {
       throw ArgumentError('Unknown AI provider: $provider');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // AI receipt parsing
+  // ---------------------------------------------------------------------------
+
+  /// Uses the LLM to turn raw receipt OCR text into structured [ReceiptData].
+  ///
+  /// LLMs handle arbitrary receipt layouts far better than regex — including
+  /// items whose name and price sit on separate lines. Returns null on any
+  /// failure so the caller can fall back to the on-device regex parser.
+  static Future<ReceiptData?> parseReceipt({
+    required String rawText,
+    required String apiKey,
+    required String provider,
+    String groqModel = 'llama-3.1-8b-instant',
+  }) async {
+    const system =
+        'You extract structured data from Malaysian receipt OCR text. '
+        'Reply with ONLY minified JSON, no markdown fences and no commentary, '
+        'of exactly this shape: '
+        '{"merchant":string|null,"date":"YYYY-MM-DD"|null,"total":number|null,'
+        '"service_charge_percent":number,"sst_percent":number,'
+        '"items":[{"name":string,"unit_price":number,"qty":number}]}. '
+        'Guidance: merchant is the shop name near the top. total is the final '
+        'amount payable (grand/nett total). An item name and its price are '
+        'often on separate lines — pair them; unit_price is the per-unit price '
+        'and qty its quantity. Exclude non-item lines (barcodes, subtotals, '
+        'totals, tax, rounding, payment, points, card, phone). Use 0 for a '
+        'missing percentage. All numbers are plain, without "RM".';
+    final user = 'Receipt OCR text:\n$rawText';
+
+    String raw;
+    try {
+      if (provider == 'gemini') {
+        raw = await _callGemini(
+          systemPrompt: system,
+          userMessage: user,
+          apiKey: apiKey,
+        );
+      } else if (provider == 'openai') {
+        raw = await _callOpenAiCompatible(
+          endpoint: _openAiEndpoint,
+          model: 'gpt-4o-mini',
+          systemPrompt: system,
+          userMessage: user,
+          apiKey: apiKey,
+          providerName: 'OpenAI',
+        );
+      } else if (provider == 'groq') {
+        raw = await _callOpenAiCompatible(
+          endpoint: _groqEndpoint,
+          model: groqModel,
+          systemPrompt: system,
+          userMessage: user,
+          apiKey: apiKey,
+          providerName: 'Groq',
+        );
+      } else {
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[AiService] Receipt parse call failed: $e');
+      return null;
+    }
+
+    return _receiptFromResponse(raw, rawText);
+  }
+
+  static ReceiptData? _receiptFromResponse(String response, String rawText) {
+    // Isolate the JSON object even if the model wrapped it in prose/fences.
+    final start = response.indexOf('{');
+    final end = response.lastIndexOf('}');
+    if (start == -1 || end <= start) return null;
+
+    try {
+      final map =
+          jsonDecode(response.substring(start, end + 1)) as Map<String, dynamic>;
+
+      double? asNum(dynamic v) {
+        if (v == null) return null;
+        if (v is num) return v.toDouble();
+        return double.tryParse(v.toString().replaceAll(RegExp(r'[^\d.\-]'), ''));
+      }
+
+      final items = <ReceiptItem>[];
+      for (final raw in (map['items'] as List? ?? const [])) {
+        if (raw is! Map) continue;
+        final name = (raw['name'] ?? '').toString().trim();
+        final price = asNum(raw['unit_price']) ?? 0;
+        final qty = (asNum(raw['qty']) ?? 1).round();
+        if (name.isEmpty || price <= 0) continue;
+        items.add(ReceiptItem(name: name, price: price, qty: qty < 1 ? 1 : qty));
+      }
+
+      final merchant = map['merchant']?.toString().trim();
+      final dateStr = map['date']?.toString();
+
+      return ReceiptData(
+        merchant: (merchant != null && merchant.isNotEmpty) ? merchant : null,
+        amount: asNum(map['total']),
+        date: (dateStr != null && dateStr.isNotEmpty)
+            ? DateTime.tryParse(dateStr)
+            : null,
+        items: items,
+        serviceRate: asNum(map['service_charge_percent']),
+        taxRate: asNum(map['sst_percent']),
+        rawText: rawText,
+        merchantConfidence: OcrConfidence.high,
+        amountConfidence: OcrConfidence.high,
+        dateConfidence: OcrConfidence.high,
+      );
+    } catch (e) {
+      debugPrint('[AiService] Receipt JSON parse failed: $e');
+      return null;
     }
   }
 
@@ -134,7 +252,8 @@ class AiService {
       'total_transactions': overviewRow['total_transactions'],
       'earliest_date':      overviewRow['earliest_date'] ?? 'n/a',
       'latest_date':        overviewRow['latest_date']   ?? 'n/a',
-      'all_time_total':     _round(overviewRow['all_time_total']),
+      'all_time_expense':   _round(overviewRow['all_time_total']),
+      'all_time_income':    _round(overviewRow['all_time_income']),
       'today':              DateFormat('yyyy-MM-dd').format(now),
       'current_month':      currentMonth,
       'current_year':       currentYear,
@@ -229,6 +348,7 @@ For this query, you have been provided with: $dataDescription.
 
 RULES:
 - Base answers strictly on the provided data only — never hallucinate figures
+- All category and summary spending figures are EXPENSES only; income is tracked separately (see all_time_income in data_overview)
 - When user says "last month", refer to: $lastMonth
 - When user says "last year", refer to: $lastYear
 - When user says "this year", refer to: $currentYear

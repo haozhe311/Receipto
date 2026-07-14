@@ -13,11 +13,17 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const String _dbName = 'receipto.db';
-  static const int _dbVersion = 3;
+  static const int _dbVersion = 6;
 
   // Table and column names
   static const String tableTransactions = 'transactions';
   static const String tableSettings = 'settings';
+  static const String tableBudgets = 'budgets';
+  static const String tableGoals = 'goals';
+  static const String tableRecurring = 'recurring';
+  static const String tableSplits = 'splits';
+  static const String tableAccounts = 'accounts';
+  static const String tableTransfers = 'transfers';
 
   Database? _database;
 
@@ -49,6 +55,7 @@ class DatabaseHelper {
         amount REAL NOT NULL,
         category TEXT NOT NULL,
         payment_method TEXT NOT NULL DEFAULT 'Cash',
+        type TEXT NOT NULL DEFAULT 'expense',
         is_ocr INTEGER NOT NULL DEFAULT 0,
         note TEXT,
         created_at TEXT NOT NULL
@@ -62,12 +69,107 @@ class DatabaseHelper {
       )
     ''');
 
+    await _createBudgetsTable(db);
+    await _createGoalsTable(db);
+    await _createRecurringTable(db);
+    await _createSplitsTable(db);
+    await _createAccountsTable(db);
+    await _createTransfersTable(db);
+
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_transactions_date ON $tableTransactions(date)',
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_transactions_category ON $tableTransactions(category)',
     );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_transactions_type ON $tableTransactions(type)',
+    );
+  }
+
+  Future<void> _createBudgetsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tableBudgets (
+        category TEXT PRIMARY KEY,
+        monthly_limit REAL NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createGoalsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tableGoals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        target_amount REAL NOT NULL,
+        saved_amount REAL NOT NULL DEFAULT 0,
+        target_date TEXT,
+        created_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createRecurringTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tableRecurring (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        merchant TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        payment_method TEXT NOT NULL DEFAULT 'Cash',
+        type TEXT NOT NULL DEFAULT 'expense',
+        frequency TEXT NOT NULL DEFAULT 'monthly',
+        next_date TEXT NOT NULL,
+        is_subscription INTEGER NOT NULL DEFAULT 0,
+        note TEXT,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createSplitsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tableSplits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        description TEXT NOT NULL,
+        total_amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        participants TEXT NOT NULL,
+        paid_by_me INTEGER NOT NULL DEFAULT 1,
+        payer_name TEXT,
+        your_share REAL NOT NULL DEFAULT 0,
+        your_share_settled INTEGER NOT NULL DEFAULT 0,
+        note TEXT,
+        created_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createAccountsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tableAccounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'cash',
+        opening_balance REAL NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createTransfersTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tableTransfers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_account TEXT NOT NULL,
+        to_account TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        note TEXT,
+        created_at TEXT NOT NULL
+      )
+    ''');
   }
 
   /// Migrates the database schema between versions.
@@ -85,6 +187,40 @@ class DatabaseHelper {
       );
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_transactions_category ON $tableTransactions(category)',
+      );
+    }
+    if (oldVersion < 4) {
+      // v3 → v4: income/expense type, plus budgets and goals tables.
+      await db.execute(
+        "ALTER TABLE $tableTransactions ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'",
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_transactions_type ON $tableTransactions(type)',
+      );
+      await _createBudgetsTable(db);
+      await _createGoalsTable(db);
+    }
+    if (oldVersion < 5) {
+      // v4 → v5: recurring, splits, accounts, and transfers.
+      await _createRecurringTable(db);
+      await _createSplitsTable(db);
+      await _createAccountsTable(db);
+      await _createTransfersTable(db);
+    }
+    if (oldVersion < 6) {
+      // v5 → v6: split expenses gain a direction (who paid) so the app can
+      // track money you owe as well as money owed to you.
+      await db.execute(
+        'ALTER TABLE $tableSplits ADD COLUMN paid_by_me INTEGER NOT NULL DEFAULT 1',
+      );
+      await db.execute(
+        'ALTER TABLE $tableSplits ADD COLUMN payer_name TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE $tableSplits ADD COLUMN your_share REAL NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE $tableSplits ADD COLUMN your_share_settled INTEGER NOT NULL DEFAULT 0',
       );
     }
   }
@@ -203,15 +339,15 @@ class DatabaseHelper {
     );
   }
 
-  /// Returns the total spending for a given month (defaults to current month).
-  /// Optionally filtered to a single [category].
+  /// Returns the total EXPENSE spending for a given month (defaults to current).
+  /// Optionally filtered to a single [category]. Income is excluded.
   Future<double> getMonthlyTotal({DateTime? month, String? category}) async {
     final db = await database;
     final now = month ?? DateTime.now();
     final firstDay = DateTime(now.year, now.month, 1);
     final lastDay = DateTime(now.year, now.month + 1, 0);
 
-    final whereParts = ['date >= ?', 'date <= ?'];
+    final whereParts = ["type = 'expense'", 'date >= ?', 'date <= ?'];
     final args = <dynamic>[
       firstDay.toIso8601String().split('T').first,
       lastDay.toIso8601String().split('T').first,
@@ -228,6 +364,91 @@ class DatabaseHelper {
       args,
     );
     return (result.first['total'] as num).toDouble();
+  }
+
+  /// Returns the total INCOME for a given month (defaults to current month).
+  Future<double> getMonthlyIncome({DateTime? month}) async {
+    final db = await database;
+    final now = month ?? DateTime.now();
+    final firstDay = DateTime(now.year, now.month, 1);
+    final lastDay = DateTime(now.year, now.month + 1, 0);
+
+    final result = await db.rawQuery(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM $tableTransactions "
+      "WHERE type = 'income' AND date >= ? AND date <= ?",
+      [
+        firstDay.toIso8601String().split('T').first,
+        lastDay.toIso8601String().split('T').first,
+      ],
+    );
+    return (result.first['total'] as num).toDouble();
+  }
+
+  /// Returns expense spending grouped by category for a single month.
+  /// Map is {category: total}, only categories with spending are included.
+  Future<Map<String, double>> getCategorySpendingForMonth(
+    DateTime month,
+  ) async {
+    final db = await database;
+    final firstDay = DateTime(month.year, month.month, 1);
+    final lastDay = DateTime(month.year, month.month + 1, 0);
+
+    final rows = await db.rawQuery(
+      "SELECT category, COALESCE(SUM(amount), 0) as total "
+      "FROM $tableTransactions "
+      "WHERE type = 'expense' AND date >= ? AND date <= ? "
+      "GROUP BY category ORDER BY total DESC",
+      [
+        firstDay.toIso8601String().split('T').first,
+        lastDay.toIso8601String().split('T').first,
+      ],
+    );
+
+    return {
+      for (final r in rows)
+        r['category'] as String: (r['total'] as num).toDouble(),
+    };
+  }
+
+  /// Returns expense and income totals per month for the last [months] months
+  /// (including the current month), oldest first. Missing months are filled 0.
+  Future<List<Map<String, dynamic>>> getMonthlyTrend(int months) async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month - (months - 1), 1);
+
+    final rows = await db.rawQuery(
+      "SELECT strftime('%Y-%m', date) AS month, type, "
+      "COALESCE(SUM(amount), 0) AS total "
+      "FROM $tableTransactions WHERE date >= ? "
+      "GROUP BY month, type",
+      [start.toIso8601String().split('T').first],
+    );
+
+    // Index results by "YYYY-MM" → {expense, income}.
+    final byMonth = <String, Map<String, double>>{};
+    for (final r in rows) {
+      final m = r['month'] as String;
+      final t = r['type'] as String;
+      final total = (r['total'] as num).toDouble();
+      byMonth.putIfAbsent(m, () => {'expense': 0, 'income': 0});
+      byMonth[m]![t] = total;
+    }
+
+    // Build a continuous list of months so gaps render as zero bars.
+    final out = <Map<String, dynamic>>[];
+    for (int i = 0; i < months; i++) {
+      final d = DateTime(now.year, now.month - (months - 1) + i, 1);
+      final key =
+          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
+      out.add({
+        'month': key,
+        'date': d,
+        'expense': byMonth[key]?['expense'] ?? 0.0,
+        'income': byMonth[key]?['income'] ?? 0.0,
+      });
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------------------
@@ -260,7 +481,7 @@ class DatabaseHelper {
   // AI context queries
   // ---------------------------------------------------------------------------
 
-  /// Returns per-category spending grouped by year, newest year first.
+  /// Returns per-category EXPENSE spending grouped by year, newest year first.
   Future<List<Map<String, dynamic>>> getYearlySummary() async {
     final db = await database;
     return await db.rawQuery('''
@@ -270,12 +491,13 @@ class DatabaseHelper {
         SUM(amount) AS total,
         COUNT(*) AS count
       FROM $tableTransactions
+      WHERE type = 'expense'
       GROUP BY year, category
       ORDER BY year DESC, total DESC
     ''');
   }
 
-  /// Returns per-category spending grouped by month (YYYY-MM), newest first.
+  /// Returns per-category EXPENSE spending grouped by month (YYYY-MM), newest first.
   Future<List<Map<String, dynamic>>> getMonthlySummary() async {
     final db = await database;
     return await db.rawQuery('''
@@ -285,12 +507,14 @@ class DatabaseHelper {
         SUM(amount) AS total,
         COUNT(*) AS count
       FROM $tableTransactions
+      WHERE type = 'expense'
       GROUP BY month, category
       ORDER BY month DESC, total DESC
     ''');
   }
 
   /// Returns a single-row overview of all transaction data.
+  /// all_time_total is expenses only; income is reported separately.
   Future<Map<String, dynamic>> getDataOverview() async {
     final db = await database;
     final rows = await db.rawQuery('''
@@ -298,10 +522,199 @@ class DatabaseHelper {
         COUNT(*) AS total_transactions,
         MIN(date) AS earliest_date,
         MAX(date) AS latest_date,
-        SUM(amount) AS all_time_total
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS all_time_total,
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS all_time_income
       FROM $tableTransactions
     ''');
     return rows.first;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Budgets
+  // ---------------------------------------------------------------------------
+
+  /// Returns all category budgets as a {category: monthlyLimit} map.
+  Future<Map<String, double>> getBudgets() async {
+    final db = await database;
+    final rows = await db.query(tableBudgets);
+    return {
+      for (final r in rows)
+        r['category'] as String: (r['monthly_limit'] as num).toDouble(),
+    };
+  }
+
+  /// Creates or updates the monthly limit for a category.
+  Future<void> setBudget(String category, double monthlyLimit) async {
+    final db = await database;
+    await db.insert(
+      tableBudgets,
+      {'category': category, 'monthly_limit': monthlyLimit},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Removes the budget for a category.
+  Future<void> deleteBudget(String category) async {
+    final db = await database;
+    await db.delete(tableBudgets, where: 'category = ?', whereArgs: [category]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Goals
+  // ---------------------------------------------------------------------------
+
+  /// Returns all savings goals, newest first.
+  Future<List<Map<String, dynamic>>> getGoals() async {
+    final db = await database;
+    return await db.query(tableGoals, orderBy: 'created_at DESC');
+  }
+
+  /// Inserts a new goal and returns its row ID.
+  Future<int> insertGoal(Map<String, dynamic> goal) async {
+    final db = await database;
+    return await db.insert(tableGoals, goal);
+  }
+
+  /// Updates an existing goal by ID.
+  Future<int> updateGoal(int id, Map<String, dynamic> goal) async {
+    final db = await database;
+    return await db.update(
+      tableGoals,
+      goal,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Deletes a goal by ID.
+  Future<int> deleteGoal(int id) async {
+    final db = await database;
+    return await db.delete(tableGoals, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recurring transactions (also powers subscriptions)
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> getRecurring() async {
+    final db = await database;
+    return await db.query(tableRecurring, orderBy: 'next_date ASC');
+  }
+
+  Future<int> insertRecurring(Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.insert(tableRecurring, row);
+  }
+
+  Future<int> updateRecurring(int id, Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.update(
+      tableRecurring,
+      row,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteRecurring(int id) async {
+    final db = await database;
+    return await db.delete(tableRecurring, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Split expenses
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> getSplits() async {
+    final db = await database;
+    return await db.query(tableSplits, orderBy: 'date DESC, id DESC');
+  }
+
+  Future<int> insertSplit(Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.insert(tableSplits, row);
+  }
+
+  Future<int> updateSplit(int id, Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.update(tableSplits, row, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteSplit(int id) async {
+    final db = await database;
+    return await db.delete(tableSplits, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Accounts / wallets and transfers
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> getAccounts() async {
+    final db = await database;
+    return await db.query(tableAccounts, orderBy: 'created_at ASC');
+  }
+
+  /// Distinct payment-method names already used by transactions. Used once to
+  /// seed accounts so historical transactions map to an account.
+  Future<List<String>> getDistinctPaymentMethods() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT DISTINCT payment_method FROM $tableTransactions '
+      'WHERE payment_method IS NOT NULL',
+    );
+    return rows
+        .map((r) => (r['payment_method'] as String?) ?? '')
+        .where((s) => s.trim().isNotEmpty)
+        .toList();
+  }
+
+  Future<int> insertAccount(Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.insert(tableAccounts, row);
+  }
+
+  Future<int> updateAccount(int id, Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.update(tableAccounts, row, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteAccount(int id) async {
+    final db = await database;
+    return await db.delete(tableAccounts, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> getTransfers() async {
+    final db = await database;
+    return await db.query(tableTransfers, orderBy: 'date DESC, id DESC');
+  }
+
+  Future<int> insertTransfer(Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.insert(tableTransfers, row);
+  }
+
+  Future<int> deleteTransfer(int id) async {
+    final db = await database;
+    return await db.delete(tableTransfers, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Returns income and expense totals grouped by payment method, used to
+  /// compute per-account balances. Shape: {paymentMethod: {income, expense}}.
+  Future<Map<String, Map<String, double>>> getPaymentFlow() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT payment_method, type, COALESCE(SUM(amount), 0) AS total '
+      'FROM $tableTransactions GROUP BY payment_method, type',
+    );
+    final out = <String, Map<String, double>>{};
+    for (final r in rows) {
+      final pm = r['payment_method'] as String;
+      final type = r['type'] as String;
+      final total = (r['total'] as num).toDouble();
+      out.putIfAbsent(pm, () => {'income': 0, 'expense': 0});
+      out[pm]![type] = total;
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------------------

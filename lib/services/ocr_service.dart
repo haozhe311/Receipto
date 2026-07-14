@@ -12,11 +12,34 @@ enum OcrConfidence {
   none,
 }
 
+/// A single line item parsed from a receipt.
+class ReceiptItem {
+  final String name;
+
+  /// Unit price (per single item).
+  final double price;
+
+  /// Quantity shown on the receipt for this line (defaults to 1).
+  final int qty;
+
+  const ReceiptItem({required this.name, required this.price, this.qty = 1});
+}
+
 /// Holds the parsed data and per-field confidence extracted from a receipt.
 class ReceiptData {
   final String? merchant;
   final double? amount;
   final DateTime? date;
+
+  /// Best-effort list of individual line items (name + price). May be empty
+  /// or imperfect — callers should let the user review and edit it.
+  final List<ReceiptItem> items;
+
+  /// Service charge percentage detected on the receipt (e.g. 10 for "10%").
+  final double? serviceRate;
+
+  /// Tax / SST / GST percentage detected on the receipt (e.g. 6 for "6%").
+  final double? taxRate;
 
   /// Original, unmodified OCR output shown in the debug section.
   final String rawText;
@@ -29,6 +52,9 @@ class ReceiptData {
     this.merchant,
     this.amount,
     this.date,
+    this.items = const [],
+    this.serviceRate,
+    this.taxRate,
     required this.rawText,
     this.merchantConfidence = OcrConfidence.none,
     this.amountConfidence = OcrConfidence.none,
@@ -75,16 +101,107 @@ class OcrService {
     final (merchant, merchantConf) = _extractMerchant(rawText, processed);
     final (amount, amountConf) = _extractAmount(processed);
     final (date, dateConf) = _extractDate(processed);
+    final items = _extractItems(rawText);
+    final (serviceRate, taxRate) = _extractRates(processed);
 
     return ReceiptData(
       merchant: merchant,
       amount: amount,
       date: date,
+      items: items,
+      serviceRate: serviceRate,
+      taxRate: taxRate,
       rawText: rawText,
       merchantConfidence: merchantConf,
       amountConfidence: amountConf,
       dateConfidence: dateConf,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Line items
+  // ---------------------------------------------------------------------------
+
+  /// Best-effort extraction of individual line items (qty + name + unit price).
+  ///
+  /// Malaysian item lines are typically "QTY  NAME UNIT_PRICE  LINE_TOTAL",
+  /// e.g. "3 Sushi 1.80 5.40". Heuristic per line:
+  ///   - a leading 1–2 digit integer is the quantity,
+  ///   - the FIRST decimal value is the unit price,
+  ///   - the text between them is the item name.
+  /// OCR is imperfect, so callers must let the user review and edit items.
+  List<ReceiptItem> _extractItems(String rawText) {
+    // Lines that are clearly not menu items.
+    final exclude = RegExp(
+      r'(SUB\s*-?\s*TOTAL|TOTAL|SERVICE|SVC|CHARGE|TAX|GST|SST|ROUND|'
+      r'CHANGE|CASH|VISA|MASTER|CARD|DEBIT|CREDIT|BALANCE|AMOUNT|DUE|PAID|'
+      r'TNG|E-?WALLET|DISCOUNT|VOUCHER|RECEIPT|INVOICE|TABLE|PAX|GUEST|'
+      r'DINE|TAKE\s*AWAY|THANK|CASHIER|NET\b|GRAND|TEL|PHONE|ORDER|SERVER)',
+      caseSensitive: false,
+    );
+    final priceRe = RegExp(r'([\d,]+\.\d{2})');
+    // Leading quantity: 1–2 digits followed by whitespace (optionally "x").
+    final leadingQty = RegExp(r'^(\d{1,2})\s+(?:X\s+)?', caseSensitive: false);
+    final trailingJunk = RegExp(r'[\-:*xX\s]+$');
+
+    final items = <ReceiptItem>[];
+    for (final rawLine in rawText.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      if (exclude.hasMatch(line)) continue;
+
+      var work = line;
+      var qty = 1;
+      final qm = leadingQty.firstMatch(work);
+      if (qm != null) {
+        qty = int.tryParse(qm.group(1)!) ?? 1;
+        work = work.substring(qm.end);
+      }
+
+      final matches = priceRe.allMatches(work).toList();
+      if (matches.isEmpty) continue;
+
+      // The first decimal is the unit price.
+      final unit =
+          double.tryParse(matches.first.group(1)!.replaceAll(',', ''));
+      if (unit == null || unit <= 0 || unit > 100000) continue;
+
+      var name = work.substring(0, matches.first.start).trim();
+      name = name.replaceAll(trailingJunk, '').trim();
+
+      // Need a plausible name (at least two letters).
+      if (RegExp(r'[A-Za-z]').allMatches(name).length < 2) continue;
+      if (name.length > 40) name = name.substring(0, 40).trim();
+
+      items.add(ReceiptItem(name: name, price: unit, qty: qty < 1 ? 1 : qty));
+    }
+    return items;
+  }
+
+  /// Extracts the service-charge and tax/SST percentages from their label
+  /// lines (e.g. "SERVICE CHARGE 10%", "TAX 6%", "SST 6%"). The percentage is
+  /// part of the label text, which OCR reads more reliably than the value
+  /// column. Operates on the pre-processed (uppercased) text.
+  (double?, double?) _extractRates(String text) {
+    final pct = RegExp(r'(\d{1,2}(?:\.\d+)?)\s*%');
+    final serviceLabel = RegExp(r'SERVICE|SVC|SVR\s*CHRG');
+    final taxLabel = RegExp(r'\b(SST|GST|TAX)\b');
+
+    double? service;
+    double? tax;
+    for (final line in text.split('\n')) {
+      final m = pct.firstMatch(line);
+      if (m == null) continue;
+      final v = double.tryParse(m.group(1)!);
+      if (v == null || v <= 0 || v > 100) continue;
+
+      if (service == null && serviceLabel.hasMatch(line)) {
+        service = v;
+      } else if (tax == null && taxLabel.hasMatch(line)) {
+        tax = v;
+      }
+    }
+    return (service, tax);
   }
 
   // ---------------------------------------------------------------------------

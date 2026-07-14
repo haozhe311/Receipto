@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/providers/account_provider.dart';
+import 'package:receipto/providers/budget_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
-import 'package:receipto/providers/payment_method_provider.dart';
+import 'package:receipto/providers/goal_provider.dart';
+import 'package:receipto/providers/recurring_provider.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
+import 'package:receipto/screens/analytics_screen.dart';
 import 'package:receipto/screens/chatbot_screen.dart';
 import 'package:receipto/screens/home_screen.dart';
 import 'package:receipto/screens/settings_screen.dart';
@@ -26,7 +30,10 @@ class ReceiptoApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
-        ChangeNotifierProvider(create: (_) => PaymentMethodProvider()),
+        ChangeNotifierProvider(create: (_) => BudgetProvider()),
+        ChangeNotifierProvider(create: (_) => GoalProvider()),
+        ChangeNotifierProvider(create: (_) => RecurringProvider()),
+        ChangeNotifierProvider(create: (_) => AccountProvider()),
       ],
       child: MaterialApp(
         title: AppConstants.appName,
@@ -49,9 +56,10 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
-  // The three main tab screens.
+  // The four main tab screens.
   final List<Widget> _screens = const [
     HomeScreen(),
+    AnalyticsScreen(),
     ChatbotScreen(),
     SettingsScreen(),
   ];
@@ -68,12 +76,23 @@ class _AppShellState extends State<AppShell> {
     final txnProvider = context.read<TransactionProvider>();
     final settingsProvider = context.read<SettingsProvider>();
     final categoryProvider = context.read<CategoryProvider>();
-    final paymentMethodProvider = context.read<PaymentMethodProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
+    final goalProvider = context.read<GoalProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
+    final accountProvider = context.read<AccountProvider>();
+
+    // Materialise any due recurring transactions before loading the month so
+    // they show up immediately.
+    await recurringProvider.processDue();
+
     await Future.wait([
       txnProvider.loadTransactions(),
       settingsProvider.loadSettings(),
       categoryProvider.loadCategories(),
-      paymentMethodProvider.loadMethods(),
+      budgetProvider.loadBudgets(),
+      goalProvider.loadGoals(),
+      recurringProvider.loadRecurring(),
+      accountProvider.loadAccounts(),
     ]);
 
     // Fire-and-forget auto-backup — never blocks the UI.
@@ -124,6 +143,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Analytics',
           ),
           NavigationDestination(
             icon: Icon(Icons.smart_toy_outlined),

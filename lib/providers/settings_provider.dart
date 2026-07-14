@@ -19,8 +19,13 @@ import 'package:receipto/services/secure_storage_service.dart';
 class SettingsProvider extends ChangeNotifier {
   static const String _keysKey = 'api_keys_v2';
   static const String _activeIndexKey = 'active_key_index';
+  static const String _groqModelKey = 'groq_model';
 
   static const List<String> _providers = ['gemini', 'openai', 'groq'];
+
+  /// Selectable Groq model IDs.
+  static const String groqLlama = 'llama-3.1-8b-instant';
+  static const String groqGptOss = 'openai/gpt-oss-120b';
 
   final Map<String, List<String>> _keys = {
     'gemini': [],
@@ -33,10 +38,14 @@ class SettingsProvider extends ChangeNotifier {
     'groq': -1,
   };
   String _aiProvider = 'gemini';
+  String _groqModel = groqLlama;
 
   // ── Public getters ────────────────────────────────────────────────────────
 
   String get aiProvider => _aiProvider;
+
+  /// The Groq model ID used for chat and receipt parsing.
+  String get groqModel => _groqModel;
 
   /// All keys saved for [provider].
   List<String> keysFor(String provider) =>
@@ -67,6 +76,10 @@ class SettingsProvider extends ChangeNotifier {
     _aiProvider =
         await SecureStorageService.read(SecureStorageService.keyAiProvider) ??
             'gemini';
+
+    // 1b. Load Groq model preference.
+    _groqModel =
+        await DatabaseHelper.instance.getSetting(_groqModelKey) ?? groqLlama;
 
     // 2. Load key lists.
     final keysRaw = await DatabaseHelper.instance.getSetting(_keysKey);
@@ -121,6 +134,13 @@ class SettingsProvider extends ChangeNotifier {
       SecureStorageService.keyAiProvider,
       provider,
     );
+    notifyListeners();
+  }
+
+  /// Chooses which Groq model to use ([groqLlama] or [groqGptOss]).
+  Future<void> setGroqModel(String model) async {
+    _groqModel = model;
+    await DatabaseHelper.instance.setSetting(_groqModelKey, model);
     notifyListeners();
   }
 
