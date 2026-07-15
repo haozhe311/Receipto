@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/budget_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
+import 'package:receipto/widgets/budget_widgets.dart';
 
 /// Lets the user set a monthly spending limit per category and shows
 /// current-month progress against each limit, with over-budget alerts.
@@ -16,11 +15,6 @@ class BudgetsScreen extends StatefulWidget {
 }
 
 class _BudgetsScreenState extends State<BudgetsScreen> {
-  final _fmt = NumberFormat.currency(
-    locale: AppConstants.currencyLocale,
-    symbol: AppConstants.currencySymbol,
-  );
-
   @override
   void initState() {
     super.initState();
@@ -48,7 +42,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              if (budgets.hasOverBudget) _overBudgetBanner(budgets),
+              if (budgets.hasOverBudget)
+                BudgetOverBanner(
+                  overCategories: budgets.overBudgetCategories,
+                ),
               Text(
                 'MONTHLY LIMITS',
                 style: TextStyle(
@@ -65,134 +62,22 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               ),
               const SizedBox(height: 12),
               for (final cat in cats) ...[
-                _budgetRow(
-                  context,
-                  budgets,
-                  cat.name,
+                BudgetProgressRow(
+                  category: cat.name,
+                  limit: budgets.limitFor(cat.name),
+                  spent: budgets.spentFor(cat.name),
+                  onTap: () => _showSetBudgetDialog(
+                    context,
+                    budgets,
+                    cat.name,
+                    budgets.limitFor(cat.name),
+                  ),
                 ),
                 const SizedBox(height: 10),
               ],
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _overBudgetBanner(BudgetProvider budgets) {
-    final list = budgets.overBudgetCategories.join(', ');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF3D1010),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF6B2020)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: Color(0xFFFF9999), size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Over budget in: $list',
-              style: const TextStyle(color: Color(0xFFFF9999), fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _budgetRow(
-    BuildContext context,
-    BudgetProvider budgets,
-    String category,
-  ) {
-    final limit = budgets.limitFor(category);
-    final spent = budgets.spentFor(category);
-    final color = AppConstants.categoryColors[category] ?? Colors.grey;
-    final icon = AppConstants.categoryIcons[category] ?? Icons.more_horiz;
-    final over = limit != null && spent > limit;
-    final pct = (limit != null && limit > 0)
-        ? (spent / limit).clamp(0.0, 1.0)
-        : 0.0;
-
-    return GestureDetector(
-      onTap: () => _showSetBudgetDialog(context, budgets, category, limit),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: over ? const Color(0xFF6B2020) : AppTheme.border,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    category,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                if (limit == null)
-                  Text(
-                    'Set budget',
-                    style: TextStyle(color: AppTheme.gold, fontSize: 13),
-                  )
-                else
-                  Text(
-                    '${_fmt.format(spent)} / ${_fmt.format(limit)}',
-                    style: TextStyle(
-                      color: over
-                          ? const Color(0xFFFF9999)
-                          : AppTheme.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-              ],
-            ),
-            if (limit != null) ...[
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  minHeight: 7,
-                  backgroundColor: AppTheme.border,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    over ? const Color(0xFFFF6B6B) : color,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                over
-                    ? 'Over by ${_fmt.format(spent - limit)}'
-                    : '${_fmt.format(limit - spent)} remaining',
-                style: TextStyle(
-                  color: over
-                      ? const Color(0xFFFF9999)
-                      : AppTheme.textMuted,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

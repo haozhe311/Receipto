@@ -3,9 +3,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
+import 'package:receipto/screens/wallets_screen.dart';
 import 'package:receipto/widgets/category_chip.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/summary_card.dart';
@@ -69,6 +71,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return Column(
             children: [
+              // Net worth (sum of all account balances) → Wallets.
+              // Global, always-current figure: kept above and visually
+              // separated from the month/category-scoped section below.
+              const SizedBox(height: 12),
+              const _NetWorthCard(),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(color: AppTheme.border, height: 1),
+              ),
+
+              // ── Month-scoped section ──────────────────────────────────
               // Spending summary card with month navigator
               SummaryCard(
                 monthlyTotal: provider.displayTotal,
@@ -137,6 +151,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             onDelete: () {
                               if (transaction.id != null) {
                                 provider.deleteTransaction(transaction.id!);
+                                // Refresh account balances / net worth.
+                                context
+                                    .read<AccountProvider>()
+                                    .loadAccounts();
                               }
                             },
                           );
@@ -159,6 +177,74 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+/// A compact card showing net worth (sum of all account balances), tapping
+/// through to Wallets & Balances. Reads [AccountProvider] — the same source
+/// the Wallets screen uses — so the calculation is not duplicated.
+class _NetWorthCard extends StatelessWidget {
+  const _NetWorthCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.currency(
+      locale: AppConstants.currencyLocale,
+      symbol: AppConstants.currencySymbol,
+    );
+    return Consumer<AccountProvider>(
+      builder: (context, accounts, _) {
+        final netWorth = accounts.netWorth;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const WalletsScreen()),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet,
+                      size: 18, color: AppTheme.gold),
+                  const SizedBox(width: 10),
+                  Text(
+                    'NET WORTH',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    fmt.format(netWorth),
+                    style: TextStyle(
+                      color: netWorth >= 0
+                          ? AppTheme.gold
+                          : const Color(0xFFFF6B6B),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.chevron_right,
+                      size: 18, color: Color(0xFF555577)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

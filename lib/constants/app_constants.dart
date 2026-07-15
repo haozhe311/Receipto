@@ -41,6 +41,14 @@ class AppConstants {
     'Others': Color(0xFF78909C),
   };
 
+  /// Maps an account type to its Material icon.
+  static const Map<String, IconData> accountTypeIcons = {
+    'cash': Icons.payments,
+    'bank': Icons.account_balance,
+    'ewallet': Icons.account_balance_wallet,
+    'other': Icons.wallet,
+  };
+
   /// Dark-tinted icon container backgrounds for each category (dark theme).
   static const Map<String, Color> categoryDarkTints = {
     'Food': Color(0xFF1E2E1E),

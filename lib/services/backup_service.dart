@@ -96,7 +96,7 @@ class BackupService {
     final driveApi = await _getDriveApiSilently();
     if (driveApi == null) { return false; } // Token refresh failed silently.
 
-    final jsonString = await db.getAllTransactionsAsJson();
+    final jsonString = await db.getAllDataAsJson();
     final bytes = utf8.encode(jsonString);
     final now = DateTime.now();
     final fileName =
@@ -131,7 +131,7 @@ class BackupService {
     if (driveApi == null) return false;
 
     // Export all transactions as JSON
-    final jsonString = await DatabaseHelper.instance.getAllTransactionsAsJson();
+    final jsonString = await DatabaseHelper.instance.getAllDataAsJson();
     final bytes = utf8.encode(jsonString);
 
     // Create file metadata
@@ -198,7 +198,7 @@ class BackupService {
     final jsonString = utf8.decode(bytesList);
 
     // Atomic import
-    await DatabaseHelper.instance.importTransactionsFromJson(jsonString);
+    await DatabaseHelper.instance.importAllDataFromJson(jsonString);
 
     return true;
   }

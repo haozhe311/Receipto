@@ -3,6 +3,11 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/providers/account_provider.dart';
+import 'package:receipto/providers/budget_provider.dart';
+import 'package:receipto/providers/category_provider.dart';
+import 'package:receipto/providers/goal_provider.dart';
+import 'package:receipto/providers/recurring_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/services/backup_service.dart';
 import 'package:receipto/services/database_helper.dart';
@@ -215,10 +220,9 @@ class _BackupScreenState extends State<BackupScreen> {
         builder: (ctx) => AlertDialog(
           title: const Text('Restore Backup?'),
           content: Text(
-            'This will REPLACE all '
-            '${context.read<TransactionProvider>().transactionCount} '
-            'current transactions with the data from '
-            '"${selected.name}".\n\nThis cannot be undone.',
+            'This will REPLACE your current data (transactions, categories, '
+            'budgets, goals, recurring transactions, and accounts) with the '
+            'data from "${selected.name}".\n\nThis cannot be undone.',
           ),
           actions: [
             TextButton(
@@ -239,7 +243,15 @@ class _BackupScreenState extends State<BackupScreen> {
       await BackupService.restore(selected.id!);
       if (!mounted) return;
 
-      await context.read<TransactionProvider>().loadTransactions();
+      // Refresh every provider whose data the restore may have replaced.
+      await Future.wait([
+        context.read<TransactionProvider>().loadTransactions(),
+        context.read<CategoryProvider>().loadCategories(),
+        context.read<BudgetProvider>().loadBudgets(),
+        context.read<GoalProvider>().loadGoals(),
+        context.read<RecurringProvider>().loadRecurring(),
+        context.read<AccountProvider>().loadAccounts(),
+      ]);
       if (!mounted) return;
 
       _showSnackBar('Restore successful!', Colors.green);

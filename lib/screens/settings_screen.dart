@@ -62,7 +62,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // ── 1. AI PROVIDER ─────────────────────────────────────────
+              // ══════════ MANAGE ══════════
+              const _GroupHeader(title: 'Manage'),
+              const SizedBox(height: 12),
+              _NavTile(
+                icon: Icons.grid_view_rounded,
+                title: 'Manage Categories',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ManageCategoriesScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Budgets',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.savings_outlined,
+                title: 'Savings Goals',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.autorenew,
+                title: 'Recurring Transactions',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RecurringScreen()),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.subscriptions_outlined,
+                title: 'Subscriptions',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SubscriptionsScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.account_balance_wallet,
+                title: 'Wallets & Balances',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WalletsScreen()),
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // ══════════ APP SETTINGS ══════════
+              const _GroupHeader(title: 'App settings'),
+              const SizedBox(height: 16),
+
+              // ── AI PROVIDER ────────────────────────────────────────────
               const _SectionHeader(title: 'AI Provider'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
@@ -272,100 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 2. PREFERENCES ─────────────────────────────────────────
-              const _SectionHeader(title: 'Preferences'),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.grid_view_rounded,
-                title: 'Manage Categories',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ManageCategoriesScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ── 3. PLANNING ────────────────────────────────────────────
-              const _SectionHeader(title: 'Planning'),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Budgets',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BudgetsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.savings_outlined,
-                title: 'Savings Goals',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const GoalsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.autorenew,
-                title: 'Recurring Transactions',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const RecurringScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.subscriptions_outlined,
-                title: 'Subscriptions',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SubscriptionsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ── 4. ACCOUNTS ────────────────────────────────────────────
-              const _SectionHeader(title: 'Accounts'),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.account_balance_wallet,
-                title: 'Wallets & Balances',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const WalletsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ── 5. DATA ────────────────────────────────────────────────
-              const _SectionHeader(title: 'Data'),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.cloud_outlined,
-                title: 'Backup & Restore',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BackupScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ── 6. HOW TO GET AN API KEY ───────────────────────────────
+              // ── HOW TO GET AN API KEY ──────────────────────────────────
               const _SectionHeader(title: 'How to get an API key'),
               const SizedBox(height: 8),
               _InstructionCard(
@@ -403,7 +376,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── 7. ABOUT ───────────────────────────────────────────────
+              // ── DATA ───────────────────────────────────────────────────
+              const _SectionHeader(title: 'Data'),
+              const SizedBox(height: 8),
+              _NavTile(
+                icon: Icons.cloud_outlined,
+                title: 'Backup & Restore',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BackupScreen()),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── ABOUT ──────────────────────────────────────────────────
               const _SectionHeader(title: 'About'),
               const SizedBox(height: 8),
               Card(
@@ -682,6 +668,32 @@ class _SectionHeader extends StatelessWidget {
         fontWeight: FontWeight.w700,
         letterSpacing: 1.2,
       ),
+    );
+  }
+}
+
+/// A prominent header separating the two top-level Settings groups
+/// ("Manage" vs "App settings"), visually distinct from [_SectionHeader].
+class _GroupHeader extends StatelessWidget {
+  final String title;
+  const _GroupHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(child: Divider(color: AppTheme.border, thickness: 1)),
+      ],
     );
   }
 }

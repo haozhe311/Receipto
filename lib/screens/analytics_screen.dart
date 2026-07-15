@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/providers/budget_provider.dart';
+import 'package:receipto/screens/budgets_screen.dart';
 import 'package:receipto/services/database_helper.dart';
 import 'package:receipto/services/insight_service.dart';
+import 'package:receipto/widgets/budget_widgets.dart';
 
 /// Spending analytics: monthly cash-flow, category breakdown, and a
 /// 6-month income/expense trend. Charts are drawn with plain Flutter
@@ -93,6 +97,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   ],
                   const SizedBox(height: 20),
                   _categoryBreakdown(),
+                  const SizedBox(height: 20),
+                  _budgetStatus(),
                   const SizedBox(height: 20),
                   _trendChart(),
                   const SizedBox(height: 24),
@@ -279,6 +285,94 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // ── Budget status ───────────────────────────────────────────────────────────
+
+  /// Reuses the Budgets screen's banner and progress-row widgets, but scoped to
+  /// the month currently selected on Analytics (spending from [_categorySpending],
+  /// limits from [BudgetProvider]).
+  Widget _budgetStatus() {
+    final budgets = context.watch<BudgetProvider>();
+    final limits = budgets.limits;
+
+    if (limits.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _budgetTitle(),
+          const SizedBox(height: 12),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+            ),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.savings_outlined,
+                      size: 18, color: AppTheme.gold),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Set a budget to track spending',
+                      style:
+                          TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right,
+                      size: 18, color: Color(0xFF555577)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Over-budget categories for the SELECTED month.
+    final entries = limits.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final over = [
+      for (final e in entries)
+        if ((_categorySpending[e.key] ?? 0) > e.value) e.key,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _budgetTitle(),
+        const SizedBox(height: 12),
+        if (over.isNotEmpty) BudgetOverBanner(overCategories: over),
+        for (final e in entries) ...[
+          BudgetProgressRow(
+            category: e.key,
+            limit: e.value,
+            spent: _categorySpending[e.key] ?? 0,
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  Widget _budgetTitle() {
+    return const Text(
+      'Budget status',
+      style: TextStyle(
+        color: AppTheme.textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 

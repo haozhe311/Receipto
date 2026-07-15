@@ -721,32 +721,101 @@ class DatabaseHelper {
   // Backup: JSON export / import
   // ---------------------------------------------------------------------------
 
-  /// Exports all transactions as a JSON-encoded string for backup.
-  Future<String> getAllTransactionsAsJson() async {
+  /// Backup schema version written into every new backup file.
+  static const int backupSchemaVersion = 2;
+
+  /// Exports the full app dataset as a JSON object string for backup.
+  ///
+  /// Covers transactions, categories, budgets, goals, recurring templates,
+  /// accounts, and account transfers. Categories live in the settings table
+  /// as a JSON string, so they are inlined here as a list.
+  Future<String> getAllDataAsJson() async {
     final db = await database;
-    final result = await db.query(tableTransactions, orderBy: 'id ASC');
-    return jsonEncode(result);
+    final categoriesRaw = await getSetting('categories');
+
+    return jsonEncode({
+      'schema_version': backupSchemaVersion,
+      'transactions': await db.query(tableTransactions, orderBy: 'id ASC'),
+      'categories':
+          categoriesRaw != null ? jsonDecode(categoriesRaw) : <dynamic>[],
+      'budgets': await db.query(tableBudgets),
+      'goals': await db.query(tableGoals, orderBy: 'id ASC'),
+      'recurring': await db.query(tableRecurring, orderBy: 'id ASC'),
+      'accounts': await db.query(tableAccounts, orderBy: 'id ASC'),
+      'transfers': await db.query(tableTransfers, orderBy: 'id ASC'),
+    });
   }
 
-  /// Imports transactions from a JSON string, replacing all existing data.
+  /// Imports a backup, replacing existing data. Handles both the current
+  /// object schema and the legacy v1 format (a bare array of transactions).
   ///
-  /// Runs inside a database transaction for atomicity — if any insert fails,
-  /// the entire operation is rolled back and existing data is preserved.
-  Future<void> importTransactionsFromJson(String jsonString) async {
-    final List<dynamic> rows = jsonDecode(jsonString) as List<dynamic>;
+  /// Any section absent from the backup is left untouched; present sections
+  /// replace their table. Runs in a single transaction for atomicity.
+  Future<void> importAllDataFromJson(String jsonString) async {
+    final decoded = jsonDecode(jsonString);
     final db = await database;
 
     await db.transaction((txn) async {
-      // Clear existing transactions
-      await txn.delete(tableTransactions);
+      // Legacy v1: a bare JSON array of transaction rows.
+      if (decoded is List) {
+        await _replaceRows(txn, tableTransactions, decoded, stripId: true);
+        return;
+      }
 
-      // Insert all imported rows
-      for (final row in rows) {
-        final map = Map<String, dynamic>.from(row as Map);
-        // Remove the id so SQLite auto-generates new ones
-        map.remove('id');
-        await txn.insert(tableTransactions, map);
+      final map = decoded as Map<String, dynamic>;
+
+      if (map['transactions'] is List) {
+        await _replaceRows(
+            txn, tableTransactions, map['transactions'] as List, stripId: true);
+      }
+      if (map['budgets'] is List) {
+        await _replaceRows(
+            txn, tableBudgets, map['budgets'] as List, stripId: false);
+      }
+      if (map['goals'] is List) {
+        await _replaceRows(txn, tableGoals, map['goals'] as List, stripId: true);
+      }
+      if (map['recurring'] is List) {
+        await _replaceRows(
+            txn, tableRecurring, map['recurring'] as List, stripId: true);
+      }
+      if (map['accounts'] is List) {
+        await _replaceRows(
+            txn, tableAccounts, map['accounts'] as List, stripId: true);
+        // Don't let one-time account seeding re-run over restored accounts.
+        await txn.insert(
+          tableSettings,
+          {'key': 'accounts_seeded', 'value': 'true'},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      if (map['transfers'] is List) {
+        await _replaceRows(
+            txn, tableTransfers, map['transfers'] as List, stripId: true);
+      }
+      if (map['categories'] is List) {
+        await txn.insert(
+          tableSettings,
+          {'key': 'categories', 'value': jsonEncode(map['categories'])},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     });
+  }
+
+  /// Clears [table] then inserts [rows]. When [stripId] is true the primary-key
+  /// `id` is dropped so SQLite regenerates it (tables with AUTOINCREMENT ids).
+  Future<void> _replaceRows(
+    Transaction txn,
+    String table,
+    List<dynamic> rows, {
+    required bool stripId,
+  }) async {
+    await txn.delete(table);
+    for (final row in rows) {
+      final map = Map<String, dynamic>.from(row as Map);
+      if (stripId) map.remove('id');
+      await txn.insert(table, map);
+    }
   }
 }

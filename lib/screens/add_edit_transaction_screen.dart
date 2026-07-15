@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/theme.dart';
+import 'package:receipto/models/account.dart';
+import 'package:receipto/models/category_model.dart';
 import 'package:receipto/models/transaction.dart' as model;
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
@@ -10,8 +14,6 @@ import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/split_screen.dart';
 import 'package:receipto/services/ai_service.dart';
 import 'package:receipto/services/ocr_service.dart';
-import 'package:receipto/widgets/category_chip.dart';
-import 'package:receipto/widgets/payment_method_chip.dart';
 
 /// Screen for manually adding a new transaction or editing an existing one.
 ///
@@ -189,36 +191,22 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Category selector
-            Text('Category', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 0,
-              runSpacing: 8,
-              children: context.watch<CategoryProvider>().categories.map((cat) {
-                return CategoryChip(
-                  category: cat.name,
-                  emoji: cat.emoji,
-                  isSelected: _selectedCategory == cat.name,
-                  onTap: () => setState(() => _selectedCategory = cat.name),
-                );
-              }).toList(),
+            // Category selector row → bottom sheet
+            _SelectorTile(
+              label: 'Category',
+              value: _selectedCategory,
+              leading: _categoryLeading(_selectedCategory),
+              onTap: _openCategorySheet,
             ),
             const SizedBox(height: 16),
 
-            // Account selector (accounts double as payment methods)
-            Text('Account', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 0,
-              runSpacing: 8,
-              children: context.watch<AccountProvider>().accounts.map((a) {
-                return PaymentMethodChip(
-                  method: a.name,
-                  isSelected: _selectedPaymentMethod == a.name,
-                  onTap: () => setState(() => _selectedPaymentMethod = a.name),
-                );
-              }).toList(),
+            // Account selector row → bottom sheet
+            // (accounts double as payment methods)
+            _SelectorTile(
+              label: 'Account',
+              value: _selectedPaymentMethod,
+              leading: _accountLeading(_selectedPaymentMethod),
+              onTap: _openAccountSheet,
             ),
             const SizedBox(height: 16),
 
@@ -288,6 +276,9 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     } else {
       await provider.addTransaction(transaction);
     }
+
+    // Refresh account balances / net worth to reflect this transaction.
+    if (mounted) { context.read<AccountProvider>().loadAccounts(); }
 
     if (mounted) { Navigator.of(context).pop(); }
   }
@@ -401,6 +392,71 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     }
   }
 
+  // ── Category / Account selectors ────────────────────────────────────────────
+
+  /// Leading widget for a category: built-in categories keep their Material
+  /// icon + colour; custom categories show their emoji (same rule as the chips).
+  Widget _categoryLeading(String name) {
+    final icon = AppConstants.categoryIcons[name];
+    final color = AppConstants.categoryColors[name] ?? Colors.grey;
+    if (icon == null) {
+      final emoji = context
+          .read<CategoryProvider>()
+          .categories
+          .where((c) => c.name == name)
+          .map((c) => c.emoji)
+          .firstOrNull;
+      if (emoji != null && emoji.isNotEmpty) {
+        return Text(emoji, style: const TextStyle(fontSize: 16, height: 1));
+      }
+    }
+    return Icon(icon ?? Icons.more_horiz, size: 20, color: color);
+  }
+
+  /// Leading widget for an account, based on its type.
+  Widget _accountLeading(String name) {
+    final type = context
+            .read<AccountProvider>()
+            .accounts
+            .where((a) => a.name == name)
+            .map((a) => a.type)
+            .firstOrNull ??
+        'other';
+    return Icon(
+      AppConstants.accountTypeIcons[type] ?? Icons.wallet,
+      size: 20,
+      color: AppTheme.gold,
+    );
+  }
+
+  Future<void> _openCategorySheet() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _CategorySheet(
+        categories: context.read<CategoryProvider>().categories,
+        selected: _selectedCategory,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedCategory = picked);
+    }
+  }
+
+  Future<void> _openAccountSheet() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AccountSheet(
+        accounts: context.read<AccountProvider>().accounts,
+        selected: _selectedPaymentMethod,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedPaymentMethod = picked);
+    }
+  }
+
   // ── Split by items ──────────────────────────────────────────────────────────
 
   /// Opens the itemised bill splitter; on return, fills the amount with the
@@ -439,10 +495,12 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
           ),
           TextButton(
             onPressed: () async {
+              final accounts = context.read<AccountProvider>();
               Navigator.of(ctx).pop();
               await context
                   .read<TransactionProvider>()
                   .deleteTransaction(widget.transaction!.id!);
+              accounts.loadAccounts(); // refresh net worth
               if (mounted) { Navigator.of(context).pop(); }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -487,6 +545,352 @@ class _DatePickerTile extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyLarge,
         ),
       ),
+    );
+  }
+}
+
+// ── Selector row ──────────────────────────────────────────────────────────────
+
+/// A single-line selector row styled like [_DatePickerTile]: floating label,
+/// a leading icon, the selected value, and a trailing chevron. Tapping opens
+/// a picker sheet.
+class _SelectorTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final Widget leading;
+  final VoidCallback onTap;
+
+  const _SelectorTile({
+    required this.label,
+    required this.value,
+    required this.leading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: SizedBox(width: 46, child: Center(child: leading)),
+          suffixIcon: const Icon(Icons.chevron_right),
+        ),
+        child: Text(value, style: Theme.of(context).textTheme.bodyLarge),
+      ),
+    );
+  }
+}
+
+// ── Picker sheets ─────────────────────────────────────────────────────────────
+
+/// Shared chrome for the selector bottom sheets: drag handle, title, search
+/// field, and a scrollable list of option rows.
+class _PickerSheet extends StatelessWidget {
+  final String title;
+  final TextEditingController searchController;
+  final ValueChanged<String> onQueryChanged;
+  final List<Widget> rows;
+
+  const _PickerSheet({
+    required this.title,
+    required this.searchController,
+    required this.onQueryChanged,
+    required this.rows,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  controller: searchController,
+                  onChanged: onQueryChanged,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'Search',
+                    prefixIcon: Icon(Icons.search, size: 20),
+                  ),
+                ),
+              ),
+              Flexible(
+                child: rows.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 28),
+                        child: Text(
+                          'No matches',
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    : ListView(shrinkWrap: true, children: rows),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One selectable option row. Uniform height and easy to scan.
+///
+/// Supports nesting so subcategories can be added later: [depth] indents the
+/// row, and when [hasChildren] is true a chevron-down/up toggle is shown that
+/// calls [onToggleExpand] to reveal indented children beneath it.
+class _OptionRow extends StatelessWidget {
+  final String label;
+  final Widget leading;
+  final bool isSelected;
+  final VoidCallback onSelect;
+
+  /// Nesting support (ready for subcategories).
+  final int depth;
+  final bool hasChildren;
+  final bool isExpanded;
+  final VoidCallback? onToggleExpand;
+
+  const _OptionRow({
+    required this.label,
+    required this.leading,
+    required this.isSelected,
+    required this.onSelect,
+    this.depth = 0,
+    this.hasChildren = false,
+    this.isExpanded = false,
+    this.onToggleExpand,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onSelect,
+      child: Container(
+        height: 52,
+        padding: EdgeInsets.only(left: 16 + depth * 24.0, right: 8),
+        child: Row(
+          children: [
+            SizedBox(width: 24, child: Center(child: leading)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? AppTheme.gold : AppTheme.textPrimary,
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check, size: 18, color: AppTheme.gold),
+            // Expand/collapse toggle — appears once a row has children.
+            if (hasChildren)
+              IconButton(
+                icon: Icon(
+                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 20,
+                ),
+                color: AppTheme.textMuted,
+                onPressed: onToggleExpand,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Category picker. Rows are built through [_OptionRow] so that subcategories
+/// (e.g. Groceries / Dining / Coffee under Food) render indented beneath their
+/// parent as soon as [_childrenOf] returns them.
+class _CategorySheet extends StatefulWidget {
+  final List<CategoryModel> categories;
+  final String selected;
+
+  const _CategorySheet({required this.categories, required this.selected});
+
+  @override
+  State<_CategorySheet> createState() => _CategorySheetState();
+}
+
+class _CategorySheetState extends State<_CategorySheet> {
+  final _searchController = TextEditingController();
+  final Set<String> _expanded = {};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Subcategories are not implemented yet, so every category is a leaf.
+  /// When subcategory management ships, return the children here and the
+  /// sheet will render them indented under their parent automatically.
+  List<CategoryModel> _childrenOf(CategoryModel parent) => const [];
+
+  Widget _leadingFor(CategoryModel c) {
+    final icon = AppConstants.categoryIcons[c.name];
+    final color = AppConstants.categoryColors[c.name] ?? Colors.grey;
+    if (icon == null && c.emoji.isNotEmpty) {
+      return Text(c.emoji, style: const TextStyle(fontSize: 16, height: 1));
+    }
+    return Icon(icon ?? Icons.more_horiz, size: 20, color: color);
+  }
+
+  bool _matches(CategoryModel c) =>
+      c.name.toLowerCase().contains(_query.trim().toLowerCase());
+
+  List<Widget> _buildRows() {
+    final rows = <Widget>[];
+    for (final cat in widget.categories) {
+      final children = _childrenOf(cat);
+      final matchingChildren = children.where(_matches).toList();
+
+      // Keep a parent if it matches, or if any of its children match.
+      if (!_matches(cat) && matchingChildren.isEmpty) continue;
+
+      final isExpanded = _expanded.contains(cat.name);
+      rows.add(
+        _OptionRow(
+          label: cat.name,
+          leading: _leadingFor(cat),
+          isSelected: cat.name == widget.selected,
+          onSelect: () => Navigator.of(context).pop(cat.name),
+          hasChildren: children.isNotEmpty,
+          isExpanded: isExpanded,
+          onToggleExpand: children.isEmpty
+              ? null
+              : () => setState(() {
+                    if (isExpanded) {
+                      _expanded.remove(cat.name);
+                    } else {
+                      _expanded.add(cat.name);
+                    }
+                  }),
+        ),
+      );
+
+      // Children render indented beneath their parent when expanded (or when
+      // a search matched them).
+      final showChildren =
+          isExpanded || (_query.isNotEmpty && matchingChildren.isNotEmpty);
+      if (showChildren) {
+        for (final child in matchingChildren.isEmpty && isExpanded
+            ? children
+            : matchingChildren) {
+          rows.add(
+            _OptionRow(
+              depth: 1,
+              label: child.name,
+              leading: _leadingFor(child),
+              isSelected: child.name == widget.selected,
+              onSelect: () => Navigator.of(context).pop(child.name),
+            ),
+          );
+        }
+      }
+    }
+    return rows;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _PickerSheet(
+      title: 'Select Category',
+      searchController: _searchController,
+      onQueryChanged: (v) => setState(() => _query = v),
+      rows: _buildRows(),
+    );
+  }
+}
+
+/// Account picker.
+class _AccountSheet extends StatefulWidget {
+  final List<Account> accounts;
+  final String selected;
+
+  const _AccountSheet({required this.accounts, required this.selected});
+
+  @override
+  State<_AccountSheet> createState() => _AccountSheetState();
+}
+
+class _AccountSheetState extends State<_AccountSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.trim().toLowerCase();
+    final rows = [
+      for (final a in widget.accounts)
+        if (a.name.toLowerCase().contains(q))
+          _OptionRow(
+            label: a.name,
+            leading: Icon(
+              AppConstants.accountTypeIcons[a.type] ?? Icons.wallet,
+              size: 20,
+              color: AppTheme.gold,
+            ),
+            isSelected: a.name == widget.selected,
+            onSelect: () => Navigator.of(context).pop(a.name),
+          ),
+    ];
+
+    return _PickerSheet(
+      title: 'Select Account',
+      searchController: _searchController,
+      onQueryChanged: (v) => setState(() => _query = v),
+      rows: rows,
     );
   }
 }

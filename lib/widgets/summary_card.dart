@@ -126,19 +126,6 @@ class SummaryCard extends StatelessWidget {
               ],
             ),
           ),
-
-          // Gold accent line at the bottom
-          Container(
-            height: 3,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(16),
-              ),
-              gradient: const LinearGradient(
-                colors: [AppTheme.gold, Color(0x00F4C542)],
-              ),
-            ),
-          ),
         ],
       ),
     );
