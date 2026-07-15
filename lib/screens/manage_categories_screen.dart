@@ -204,7 +204,7 @@ class _AddCategoryDialogState extends State<_AddCategoryDialog> {
               },
             ),
             const SizedBox(height: 20),
-            Text('Icon & color', style: Theme.of(context).textTheme.titleSmall),
+            Text('Icon', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 12),
             SizedBox(
               width: 280,

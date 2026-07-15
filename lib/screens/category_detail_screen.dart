@@ -68,14 +68,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     return true;
   }
 
-  Future<void> _pickIcon() async {
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      builder: (_) => CategoryIconPickerSheet(selectedKey: _iconKey),
-    );
-    if (picked != null) _selectIcon(picked);
-  }
-
   void _selectIcon(String key) {
     setState(() => _iconKey = key);
     context.read<CategoryProvider>().setIcon(_name, key);
@@ -173,9 +165,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Icon & color
+            // Icon (each swatch is a fixed icon + colour pairing)
             Text(
-              'Icon & color',
+              'Icon',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 12),
@@ -208,40 +200,40 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
+  /// Live preview of the selected swatch. Non-interactive: the pencil badge is
+  /// only a hint that the icon is editable — the single source of selection is
+  /// the inline "Icon" grid below.
   Widget _iconPreview(CategoryIconOption option) {
-    return GestureDetector(
-      onTap: _pickIcon,
-      child: SizedBox(
-        width: 104,
-        height: 104,
-        child: Stack(
-          children: [
-            Container(
-              width: 96,
-              height: 96,
+    return SizedBox(
+      width: 104,
+      height: 104,
+      child: Stack(
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: option.color.withAlpha(38),
+              border: Border.all(color: option.color.withAlpha(120), width: 2),
+            ),
+            child: Icon(option.icon, color: option.color, size: 44),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 4,
+            child: Container(
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: option.color.withAlpha(38),
-                border: Border.all(color: option.color.withAlpha(120), width: 2),
+                color: AppTheme.gold,
+                border: Border.all(color: AppTheme.background, width: 2),
               ),
-              child: Icon(option.icon, color: option.color, size: 44),
+              child: const Icon(Icons.edit, size: 15, color: Color(0xFF1A1A00)),
             ),
-            Positioned(
-              right: 0,
-              bottom: 4,
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.gold,
-                  border: Border.all(color: AppTheme.background, width: 2),
-                ),
-                child: const Icon(Icons.edit, size: 15, color: Color(0xFF1A1A00)),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
