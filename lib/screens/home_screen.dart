@@ -364,6 +364,7 @@ class _CategoryFilterBar extends StatelessWidget {
           ...categories.map(
             (cat) => CategoryChip(
               category: cat.name,
+              iconKey: cat.iconKey,
               emoji: cat.emoji,
               isSelected: selectedCategory == cat.name,
               onTap: () => onCategorySelected(cat.name),

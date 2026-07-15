@@ -160,6 +160,7 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
               children: context.watch<CategoryProvider>().categories.map((c) {
                 return CategoryChip(
                   category: c.name,
+                  iconKey: c.iconKey,
                   emoji: c.emoji,
                   isSelected: _category == c.name,
                   onTap: () => setState(() => _category = c.name),

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_icons.dart';
 import 'package:receipto/constants/theme.dart';
 
 /// A selectable chip representing a transaction category.
 ///
-/// Built-in categories (those present in [AppConstants.categoryIcons]) display
-/// their Material icon. Custom categories display [emoji] as text instead.
+/// Shows the category's icon swatch, resolved from [iconKey] (or the built-in
+/// match on [category]). Legacy categories saved before icon swatches existed
+/// — no [iconKey] and not built-in — fall back to displaying [emoji].
 ///
 /// Used in the home screen filter bar and in the add/edit category selector.
 class CategoryChip extends StatelessWidget {
@@ -13,8 +14,10 @@ class CategoryChip extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  /// Emoji string shown for custom categories that have no Material icon.
-  /// Ignored when the category exists in [AppConstants.categoryIcons].
+  /// Key of the category's icon swatch, when it has one.
+  final String? iconKey;
+
+  /// Legacy emoji, shown only when no icon swatch can be resolved.
   final String emoji;
 
   const CategoryChip({
@@ -22,14 +25,16 @@ class CategoryChip extends StatelessWidget {
     required this.category,
     required this.isSelected,
     required this.onTap,
+    this.iconKey,
     this.emoji = '',
   });
 
   @override
   Widget build(BuildContext context) {
-    final builtInIcon = AppConstants.categoryIcons[category];
-    final builtInColor = AppConstants.categoryColors[category] ?? Colors.grey;
-    final isCustom = builtInIcon == null;
+    final option = CategoryIcons.resolve(category, iconKey);
+    final hasSwatch =
+        iconKey != null || CategoryIcons.builtInKeyFor(category) != null;
+    final isCustom = !hasSwatch;
 
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -49,7 +54,7 @@ class CategoryChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Built-in categories: Material icon; custom categories: emoji text.
+              // Icon swatch; legacy categories without one show their emoji.
               if (isCustom && emoji.isNotEmpty)
                 Text(
                   emoji,
@@ -57,9 +62,9 @@ class CategoryChip extends StatelessWidget {
                 )
               else
                 Icon(
-                  builtInIcon ?? Icons.more_horiz,
+                  option.icon,
                   size: 15,
-                  color: isSelected ? AppTheme.gold : builtInColor,
+                  color: isSelected ? AppTheme.gold : option.color,
                 ),
               const SizedBox(width: 5),
               Text(

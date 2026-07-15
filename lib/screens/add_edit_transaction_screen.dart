@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_icons.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/account.dart';
 import 'package:receipto/models/category_model.dart';
@@ -394,23 +395,11 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
 
   // ── Category / Account selectors ────────────────────────────────────────────
 
-  /// Leading widget for a category: built-in categories keep their Material
-  /// icon + colour; custom categories show their emoji (same rule as the chips).
+  /// Leading widget for a category: its icon swatch, falling back to the
+  /// legacy emoji for categories saved before swatches existed.
   Widget _categoryLeading(String name) {
-    final icon = AppConstants.categoryIcons[name];
-    final color = AppConstants.categoryColors[name] ?? Colors.grey;
-    if (icon == null) {
-      final emoji = context
-          .read<CategoryProvider>()
-          .categories
-          .where((c) => c.name == name)
-          .map((c) => c.emoji)
-          .firstOrNull;
-      if (emoji != null && emoji.isNotEmpty) {
-        return Text(emoji, style: const TextStyle(fontSize: 16, height: 1));
-      }
-    }
-    return Icon(icon ?? Icons.more_horiz, size: 20, color: color);
+    final cat = context.read<CategoryProvider>().byName(name);
+    return _categoryIconWidget(name, cat?.iconKey, cat?.emoji ?? '');
   }
 
   /// Leading widget for an account, based on its type.
@@ -547,6 +536,18 @@ class _DatePickerTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Resolves a category's leading widget: its icon swatch, or the legacy emoji
+/// for categories saved before swatches existed. Shared by the selector row
+/// and the picker sheet so they always agree.
+Widget _categoryIconWidget(String name, String? iconKey, String emoji) {
+  final hasSwatch = iconKey != null || CategoryIcons.builtInKeyFor(name) != null;
+  if (!hasSwatch && emoji.isNotEmpty) {
+    return Text(emoji, style: const TextStyle(fontSize: 16, height: 1));
+  }
+  final option = CategoryIcons.resolve(name, iconKey);
+  return Icon(option.icon, size: 20, color: option.color);
 }
 
 // ── Selector row ──────────────────────────────────────────────────────────────
@@ -771,14 +772,8 @@ class _CategorySheetState extends State<_CategorySheet> {
   /// sheet will render them indented under their parent automatically.
   List<CategoryModel> _childrenOf(CategoryModel parent) => const [];
 
-  Widget _leadingFor(CategoryModel c) {
-    final icon = AppConstants.categoryIcons[c.name];
-    final color = AppConstants.categoryColors[c.name] ?? Colors.grey;
-    if (icon == null && c.emoji.isNotEmpty) {
-      return Text(c.emoji, style: const TextStyle(fontSize: 16, height: 1));
-    }
-    return Icon(icon ?? Icons.more_horiz, size: 20, color: color);
-  }
+  Widget _leadingFor(CategoryModel c) =>
+      _categoryIconWidget(c.name, c.iconKey, c.emoji);
 
   bool _matches(CategoryModel c) =>
       c.name.toLowerCase().contains(_query.trim().toLowerCase());

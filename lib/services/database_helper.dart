@@ -451,6 +451,25 @@ class DatabaseHelper {
     return out;
   }
 
+  /// Renames a category everywhere it is referenced by name, so renaming from
+  /// Manage Categories never orphans existing records.
+  Future<void> renameCategoryEverywhere(String oldName, String newName) async {
+    if (oldName == newName) return;
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update(tableTransactions, {'category': newName},
+          where: 'category = ?', whereArgs: [oldName]);
+      await txn.update(tableRecurring, {'category': newName},
+          where: 'category = ?', whereArgs: [oldName]);
+      // budgets keys on category — drop any row already using the new name
+      // so the update can't violate the primary key.
+      await txn
+          .delete(tableBudgets, where: 'category = ?', whereArgs: [newName]);
+      await txn.update(tableBudgets, {'category': newName},
+          where: 'category = ?', whereArgs: [oldName]);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Settings key-value store
   // ---------------------------------------------------------------------------
