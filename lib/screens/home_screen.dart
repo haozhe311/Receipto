@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const GlassAppBar(title: Text(AppConstants.appName)),
+      appBar: AppBar(title: const Text(AppConstants.appName)),
       body: Consumer<TransactionProvider>(
         builder: (context, provider, _) {
           // Scroll to top whenever the user navigates to a different month.

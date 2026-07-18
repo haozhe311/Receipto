@@ -88,10 +88,10 @@ class AppTheme {
       // through every screen. The backdrop is painted once at the app root.
       scaffoldBackgroundColor: Colors.transparent,
 
-      // AppBar — translucent glass floating over the backdrop. Screens that
-      // adopt [GlassAppBar] additionally get a real frosted blur behind it.
+      // AppBar — fully transparent so the title sits directly on the gradient
+      // backdrop (no glass panel behind it, unlike the bottom nav bar).
       appBarTheme: const AppBarTheme(
-        backgroundColor: glassRowFill,
+        backgroundColor: Colors.transparent,
         foregroundColor: textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
