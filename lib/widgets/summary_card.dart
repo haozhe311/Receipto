@@ -37,7 +37,7 @@ class SummaryCard extends StatelessWidget {
     return HeroGlassCard(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: EdgeInsets.zero,
-      borderRadius: 16,
+      borderRadius: 18,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -64,9 +64,9 @@ class SummaryCard extends StatelessWidget {
                     monthLabel,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      color: AppTheme.onGlass,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -79,7 +79,7 @@ class SummaryCard extends StatelessWidget {
                   constraints: const BoxConstraints(),
                   style: IconButton.styleFrom(
                     foregroundColor: AppTheme.gold,
-                    disabledForegroundColor: const Color(0xFF555577),
+                    disabledForegroundColor: AppTheme.onGlassFaint,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
@@ -98,10 +98,10 @@ class SummaryCard extends StatelessWidget {
                       ? '${selectedCategory!.toUpperCase()} SPENDING'
                       : 'TOTAL SPENDING',
                   style: TextStyle(
-                    color: AppTheme.textMuted,
+                    color: AppTheme.onGlassMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2,
+                    letterSpacing: 0.5,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -119,7 +119,7 @@ class SummaryCard extends StatelessWidget {
                   selectedCategory != null
                       ? '$transactionCount transaction${transactionCount == 1 ? '' : 's'} in $selectedCategory'
                       : '$transactionCount transaction${transactionCount == 1 ? '' : 's'} this month',
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                  style: TextStyle(color: AppTheme.onGlassMuted, fontSize: 12),
                 ),
               ],
             ),

@@ -35,19 +35,16 @@ class AppTheme {
   static const Color blobGold = Color(0xFFF0C440);
   static const Color blobBlue = Color(0xFF4E9BFF);
 
-  /// Glass surface tints (white over the dark backdrop).
-  static const Color glassHeroFill = Color(
-    0x1AFFFFFF,
-  ); // ~0.10 white — hero cards
-  static const Color glassHeroTop = Color(
-    0x24FFFFFF,
-  ); // ~0.14 — hero top highlight
+  /// Glass surface tints (flat white over the dark backdrop).
+  static const Color glassHeroFill = Color(0x1AFFFFFF); // ~0.10 — hero cards
   static const Color glassRowFill = Color(0x14FFFFFF); // ~0.08 — list rows
-  static const Color glassRowTop = Color(
-    0x1FFFFFFF,
-  ); // ~0.12 — row top highlight
-  static const Color glassBorder = Color(0x40FFFFFF); // ~0.25 — hero border
+  static const Color glassBorder = Color(0x38FFFFFF); // ~0.22 — hero border
   static const Color glassBorderSoft = Color(0x2EFFFFFF); // ~0.18 — row border
+
+  /// On-glass text colours — light, high-contrast against the dark backdrop.
+  static const Color onGlass = Color(0xD9FFFFFF); // ~0.85 white — primary text
+  static const Color onGlassMuted = Color(0x99FFFFFF); // ~0.60 white — labels
+  static const Color onGlassFaint = Color(0x66FFFFFF); // ~0.40 white — hints
   /// Drop shadow beneath hero glass cards.
   static const Color glassShadow = Color(0x59140A3C); // rgba(20,10,60,0.35)
 

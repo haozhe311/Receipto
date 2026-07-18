@@ -189,45 +189,43 @@ class _NetWorthCard extends StatelessWidget {
         final netWorth = accounts.netWorth;
         return HeroGlassCard(
           margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          borderRadius: 16,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WalletsScreen()),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.account_balance_wallet,
-                size: 18,
-                color: AppTheme.gold,
+              Row(
+                children: [
+                  const Icon(
+                    Icons.account_balance_wallet,
+                    size: 16,
+                    color: AppTheme.gold,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'NET WORTH',
+                    style: TextStyle(
+                      color: AppTheme.onGlassMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                'NET WORTH',
-                style: TextStyle(
-                  color: AppTheme.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1,
-                ),
-              ),
-              const Spacer(),
+              const SizedBox(height: 6),
               Text(
                 fmt.format(netWorth),
                 style: TextStyle(
                   color: netWorth >= 0
-                      ? AppTheme.gold
-                      : const Color(0xFFFF6B6B),
+                      ? Colors.white
+                      : const Color(0xFFFF8A8A),
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
-              ),
-              const SizedBox(width: 2),
-              const Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: Color(0xFF555577),
               ),
             ],
           ),
@@ -255,14 +253,14 @@ class _CashFlowStrip extends StatelessWidget {
       locale: AppConstants.currencyLocale,
       symbol: AppConstants.currencySymbol,
     );
-    const income400 = Color(0xFF4CAF50);
-    final netColor = net >= 0 ? income400 : const Color(0xFFFF6B6B);
+    const incomeGreen = Color(0xFF7CE0A8);
+    final netColor = net >= 0 ? incomeGreen : const Color(0xFFFF8A8A);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Row(
         children: [
-          _cell(context, 'Income', fmt.format(income), income400),
+          _cell(context, 'Income', fmt.format(income), incomeGreen),
           const SizedBox(width: 8),
           _cell(context, 'Expenses', fmt.format(expense), AppTheme.gold),
           const SizedBox(width: 8),
@@ -293,10 +291,10 @@ class _CashFlowStrip extends StatelessWidget {
             Text(
               label.toUpperCase(),
               style: const TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 9,
+                color: AppTheme.onGlassMuted,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
+                letterSpacing: 0.5,
               ),
             ),
             const SizedBox(height: 4),
@@ -370,9 +368,12 @@ class _CategoryFilterBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            const Icon(Icons.filter_list, size: 22, color: AppTheme.textMuted),
-            const SizedBox(width: 12),
-            Text('Filter', style: Theme.of(context).textTheme.bodyLarge),
+            const Icon(Icons.filter_list, size: 18, color: AppTheme.onGlass),
+            const SizedBox(width: 10),
+            const Text(
+              'Filter',
+              style: TextStyle(color: AppTheme.onGlass, fontSize: 13),
+            ),
             const Spacer(),
             _trailing(context),
           ],
@@ -385,7 +386,11 @@ class _CategoryFilterBar extends StatelessWidget {
   /// selected category's icon + name once a filter is applied.
   Widget _trailing(BuildContext context) {
     if (selectedCategory == null) {
-      return const Icon(Icons.chevron_right, color: AppTheme.textMuted);
+      return const Icon(
+        Icons.chevron_right,
+        size: 18,
+        color: AppTheme.onGlassFaint,
+      );
     }
     final option = CategoryIcons.resolve(
       selectedCategory!,

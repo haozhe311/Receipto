@@ -32,43 +32,48 @@ class GlassBackground extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          // Gentle diagonal (~160°) — deep indigo top → deep navy bottom.
+          begin: Alignment(-0.3, -1),
+          end: Alignment(0.3, 1),
           colors: [
             AppTheme.bgGradientTop,
             AppTheme.bgGradientMid,
             AppTheme.bgGradientBottom,
           ],
-          stops: [0.0, 0.55, 1.0],
+          stops: [0.0, 0.5, 1.0],
         ),
       ),
       child: Stack(
         children: [
           // Soft blobs behind everything. RepaintBoundary keeps them off the
-          // content's layer so list scrolling doesn't repaint them.
+          // content's layer so list scrolling doesn't repaint them (the blur is
+          // rasterised once, not per frame).
           const RepaintBoundary(
             child: Stack(
               children: [
                 _Blob(
-                  top: -80,
+                  top: -40,
                   left: -60,
-                  size: 280,
+                  size: 220,
+                  blur: 50,
                   color: AppTheme.blobPurple,
-                  opacity: 0.40,
+                  opacity: 0.35,
                 ),
                 _Blob(
-                  top: 150,
-                  right: -90,
-                  size: 260,
+                  top: 120,
+                  right: -70,
+                  size: 200,
+                  blur: 55,
                   color: AppTheme.blobGold,
-                  opacity: 0.36,
+                  opacity: 0.25,
                 ),
                 _Blob(
-                  bottom: -70,
-                  left: 0,
-                  size: 280,
+                  bottom: 60,
+                  left: -50,
+                  size: 180,
+                  blur: 50,
                   color: AppTheme.blobBlue,
-                  opacity: 0.38,
+                  opacity: 0.30,
                 ),
               ],
             ),
@@ -80,14 +85,16 @@ class GlassBackground extends StatelessWidget {
   }
 }
 
-/// A single soft radial-gradient glow standing in for a blurred blob — the
-/// gaussian look without a per-frame [ImageFilter].
+/// A soft, blurred colour blob: a solid translucent circle run through a real
+/// gaussian [ImageFilter]. Sits inside the backdrop's [RepaintBoundary], so the
+/// blur is rasterised once and never recomputed during list scrolling.
 class _Blob extends StatelessWidget {
   final double? top;
   final double? left;
   final double? right;
   final double? bottom;
   final double size;
+  final double blur;
   final Color color;
   final double opacity;
 
@@ -97,6 +104,7 @@ class _Blob extends StatelessWidget {
     this.right,
     this.bottom,
     required this.size,
+    required this.blur,
     required this.color,
     required this.opacity,
   });
@@ -109,21 +117,14 @@ class _Blob extends StatelessWidget {
       right: right,
       bottom: bottom,
       child: IgnorePointer(
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              // Hold the colour near full strength through the core, then fall
-              // off — keeps each blob's purple/gold/blue identity instead of
-              // homogenising into one flat tone.
-              colors: [
-                color.withValues(alpha: opacity),
-                color.withValues(alpha: opacity * 0.7),
-                color.withValues(alpha: 0),
-              ],
-              stops: const [0.0, 0.45, 1.0],
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: opacity),
             ),
           ),
         ),
@@ -158,14 +159,10 @@ class HeroGlassCard extends StatelessWidget {
     final radius = BorderRadius.circular(borderRadius);
 
     Widget content = Container(
-      // Fill (subtly brighter at the top) + a defined border.
+      // Flat translucent fill + a defined border.
       decoration: BoxDecoration(
         borderRadius: radius,
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppTheme.glassHeroTop, AppTheme.glassHeroFill],
-        ),
+        color: AppTheme.glassHeroFill,
         border: Border.all(color: AppTheme.glassBorder, width: 1),
       ),
       padding: padding,
@@ -240,11 +237,7 @@ class ListGlassRow extends StatelessWidget {
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: radius,
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppTheme.glassRowTop, AppTheme.glassRowFill],
-        ),
+        color: AppTheme.glassRowFill,
         border: Border.all(color: AppTheme.glassBorderSoft, width: 1),
       ),
       clipBehavior: Clip.antiAlias,
