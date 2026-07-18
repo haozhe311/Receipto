@@ -397,7 +397,7 @@ class _SplitScreenState extends State<SplitScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
-        color: mine ? AppTheme.surfaceHigh : AppTheme.surface,
+        color: mine ? AppTheme.glassHeroFill : AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: mine ? AppTheme.gold.withAlpha(120) : AppTheme.border,
@@ -484,9 +484,9 @@ class _SplitScreenState extends State<SplitScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.glassBorderSoft),
       ),
       child: Column(
         children: [

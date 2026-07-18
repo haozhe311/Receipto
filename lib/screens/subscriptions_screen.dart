@@ -6,6 +6,7 @@ import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/recurring_transaction.dart';
 import 'package:receipto/providers/recurring_provider.dart';
 import 'package:receipto/screens/add_edit_recurring_screen.dart';
+import 'package:receipto/widgets/glass.dart';
 
 /// Focused view of recurring items flagged as subscriptions, with the total
 /// monthly cost and upcoming renewal dates.
@@ -70,41 +71,39 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   }
 
   Widget _totalCard(double monthly) {
-    return Container(
-      width: double.infinity,
+    return HeroGlassCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'MONTHLY SUBSCRIPTION COST',
-            style: TextStyle(
-              color: AppTheme.textMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.1,
+      borderRadius: 16,
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'MONTHLY SUBSCRIPTION COST',
+              style: TextStyle(
+                color: AppTheme.onGlassMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.1,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _fmt.format(monthly),
-            style: const TextStyle(
-              color: AppTheme.gold,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 8),
+            Text(
+              _fmt.format(monthly),
+              style: const TextStyle(
+                color: AppTheme.gold,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '≈ ${_fmt.format(monthly * 12)} per year',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              '≈ ${_fmt.format(monthly * 12)} per year',
+              style: TextStyle(color: AppTheme.onGlassMuted, fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -120,9 +119,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.glassRowFill,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: AppTheme.glassBorderSoft),
         ),
         child: Row(
           children: [
@@ -132,7 +131,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
+                border: Border.all(color: AppTheme.glassBorderSoft),
               ),
               child: Icon(Icons.subscriptions,
                   color: AppTheme.gold.withAlpha(220), size: 20),

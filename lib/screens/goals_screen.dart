@@ -96,9 +96,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.glassBorderSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

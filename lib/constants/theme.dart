@@ -107,32 +107,35 @@ class AppTheme {
         actionsIconTheme: IconThemeData(color: textMuted),
       ),
 
-      // Cards
+      // Cards — glass: flat translucent fill + soft light border over the
+      // shared gradient backdrop (matches ListGlassRow; standout cards use
+      // HeroGlassCard for a real blur).
       cardTheme: CardThemeData(
-        color: surface,
+        color: glassRowFill,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: border, width: 1),
+          side: const BorderSide(color: glassBorderSoft, width: 1),
         ),
         margin: EdgeInsets.zero,
       ),
 
-      // Input fields
+      // Input fields — glass: translucent fill + soft light border.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
+        fillColor: glassHeroFill,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: border),
+          borderSide: const BorderSide(color: glassBorderSoft),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: border),
+          borderSide: const BorderSide(color: glassBorderSoft),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

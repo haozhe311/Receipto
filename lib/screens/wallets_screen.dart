@@ -5,6 +5,7 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/account.dart';
 import 'package:receipto/providers/account_provider.dart';
+import 'package:receipto/widgets/glass.dart';
 
 /// Multi-account wallet view: per-account balances, overall net worth, and
 /// transfers between accounts.
@@ -93,41 +94,39 @@ class _WalletsScreenState extends State<WalletsScreen> {
   }
 
   Widget _netWorthCard(double netWorth) {
-    return Container(
-      width: double.infinity,
+    return HeroGlassCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'NET WORTH',
-            style: TextStyle(
-              color: AppTheme.textMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
+      borderRadius: 16,
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'NET WORTH',
+              style: TextStyle(
+                color: AppTheme.onGlassMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _fmt.format(netWorth),
-            style: TextStyle(
-              color: netWorth >= 0 ? AppTheme.gold : const Color(0xFFFF6B6B),
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 8),
+            Text(
+              _fmt.format(netWorth),
+              style: TextStyle(
+                color: netWorth >= 0 ? Colors.white : const Color(0xFFFF8A8A),
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Total across all accounts',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              'Total across all accounts',
+              style: TextStyle(color: AppTheme.onGlassMuted, fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -143,9 +142,9 @@ class _WalletsScreenState extends State<WalletsScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.glassRowFill,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: AppTheme.glassBorderSoft),
         ),
         child: Row(
           children: [
@@ -155,7 +154,7 @@ class _WalletsScreenState extends State<WalletsScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
+                border: Border.all(color: AppTheme.glassBorderSoft),
               ),
               child: Icon(
                 _typeIcons[acc.type] ?? Icons.wallet,
@@ -244,9 +243,9 @@ class _WalletsScreenState extends State<WalletsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.glassBorderSoft),
       ),
       child: Text(
         'Add an account to start tracking balances. Balances are computed from '

@@ -200,7 +200,7 @@ class _ChatBubble extends StatelessWidget {
         ? const Color(0xFF3D1010)
         : isUser
             ? AppTheme.goldDark
-            : AppTheme.surface;
+            : AppTheme.glassRowFill;
     final textColor = message.isError
         ? const Color(0xFFFF9999)
         : isUser
@@ -411,9 +411,9 @@ class _TypingIndicator extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
+              color: AppTheme.glassRowFill,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.border),
+              border: Border.all(color: AppTheme.glassBorderSoft),
             ),
             child: const SizedBox(
               width: 20,

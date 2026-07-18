@@ -220,9 +220,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     vertical: 14,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.surface,
+                    color: AppTheme.glassRowFill,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.border),
+                    border: Border.all(color: AppTheme.glassBorderSoft),
                   ),
                   child: Row(
                     children: [
@@ -312,9 +312,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: AppTheme.glassRowFill,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
+                  border: Border.all(color: AppTheme.glassBorderSoft),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,7 +553,7 @@ class _KeyRowState extends State<_KeyRow> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.glassRowFill,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: widget.isActive ? AppTheme.gold : AppTheme.border,
@@ -717,9 +717,9 @@ class _NavTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.glassRowFill,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: AppTheme.glassBorderSoft),
         ),
         child: Row(
           children: [

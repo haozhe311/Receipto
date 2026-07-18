@@ -123,9 +123,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: AppTheme.glassRowFill,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.border),
+            border: Border.all(color: AppTheme.glassBorderSoft),
           ),
           child: Row(
             children: [
@@ -135,7 +135,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                 decoration: BoxDecoration(
                   color: AppTheme.background,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
+                  border: Border.all(color: AppTheme.glassBorderSoft),
                 ),
                 child: Icon(icon, color: color, size: 20),
               ),

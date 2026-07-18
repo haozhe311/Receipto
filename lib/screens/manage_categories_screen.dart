@@ -25,9 +25,9 @@ class ManageCategoriesScreen extends StatelessWidget {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: AppTheme.glassRowFill,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
+                  border: Border.all(color: AppTheme.glassBorderSoft),
                 ),
                 child: Column(
                   children: [

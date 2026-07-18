@@ -253,9 +253,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.glassBorderSoft),
       ),
       child: Row(
         children: [

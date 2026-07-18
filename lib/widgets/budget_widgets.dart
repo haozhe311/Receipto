@@ -77,7 +77,7 @@ class BudgetProgressRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.glassRowFill,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: over ? const Color(0xFF6B2020) : AppTheme.border,

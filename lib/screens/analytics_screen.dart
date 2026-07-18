@@ -113,9 +113,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Widget _monthNavigator() {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.glassBorderSoft),
       ),
       child: Row(
         children: [
@@ -175,9 +175,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.glassRowFill,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: AppTheme.glassBorderSoft),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,9 +313,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
-                color: AppTheme.surface,
+                color: AppTheme.glassRowFill,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
+                border: Border.all(color: AppTheme.glassBorderSoft),
               ),
               child: Row(
                 children: [
@@ -538,9 +538,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.glassBorderSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
