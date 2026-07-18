@@ -16,6 +16,12 @@ class TransactionProvider extends ChangeNotifier {
   bool _hasMore = false;
   int _loadedPages = 0;
   String? _selectedCategory;
+
+  /// The actual stored category values the filter matches against. For a
+  /// category-level Home filter this is the parent name plus all its
+  /// subcategories, so e.g. "Transport" includes Fuel + Maintenance. Null when
+  /// no filter is applied. [_selectedCategory] remains the display label.
+  List<String>? _selectedCategoryValues;
   double _monthlyTotal = 0;
   double _monthlyIncome = 0;
   double? _filteredTotal;
@@ -93,7 +99,7 @@ class TransactionProvider extends ChangeNotifier {
     try {
       final futures = <Future>[
         db.getTransactions(
-          category: _selectedCategory,
+          categories: _selectedCategoryValues,
           from: firstDay,
           to: lastDay,
           limit: _pageSize,
@@ -101,13 +107,14 @@ class TransactionProvider extends ChangeNotifier {
         ),
         db.getMonthlyTotal(month: _selectedMonth),
         db.getTransactionCount(
-          category: _selectedCategory,
+          categories: _selectedCategoryValues,
           from: firstDay,
           to: lastDay,
         ),
         db.getMonthlyIncome(month: _selectedMonth),
         if (_selectedCategory != null)
-          db.getMonthlyTotal(month: _selectedMonth, category: _selectedCategory),
+          db.getMonthlyTotal(
+              month: _selectedMonth, categories: _selectedCategoryValues),
       ];
       final results = await Future.wait(futures);
 
@@ -135,7 +142,7 @@ class TransactionProvider extends ChangeNotifier {
 
     try {
       final next = await DatabaseHelper.instance.getTransactions(
-        category: _selectedCategory,
+        categories: _selectedCategoryValues,
         from: firstDay,
         to: lastDay,
         limit: _pageSize,
@@ -171,8 +178,15 @@ class TransactionProvider extends ChangeNotifier {
 
   /// Sets the category filter within the current month and reloads.
   /// Pass null to show all categories.
-  void filterByCategory(String? category) {
+  ///
+  /// [category] is the display label. [includeValues] are the stored category
+  /// values the filter should match — for a category-level filter, pass the
+  /// parent name plus all its subcategories so the list shows them combined.
+  /// When omitted, the filter matches [category] exactly.
+  void filterByCategory(String? category, {List<String>? includeValues}) {
     _selectedCategory = category;
+    _selectedCategoryValues =
+        category == null ? null : (includeValues ?? [category]);
     loadTransactions();
   }
 

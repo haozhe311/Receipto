@@ -165,16 +165,24 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Icon (each swatch is a fixed icon + colour pairing)
+            // Icon (each swatch is a fixed icon + colour pairing).
+            // Built-in categories keep a fixed icon, so the grid is hidden
+            // for them — this prevents an accidental tap from changing it.
             Text(
               'Icon',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 12),
-            CategoryIconGrid(
-              selectedKey: _iconKey,
-              onSelected: _selectIcon,
-            ),
+            if (CategoryProvider.isBuiltIn(_name))
+              Text(
+                'Built-in categories keep a fixed icon.',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              )
+            else
+              CategoryIconGrid(
+                selectedKey: _iconKey,
+                onSelected: _selectIcon,
+              ),
             const SizedBox(height: 28),
 
             // Subcategories
@@ -219,20 +227,22 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             ),
             child: Icon(option.icon, color: option.color, size: 44),
           ),
-          Positioned(
-            right: 0,
-            bottom: 4,
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.gold,
-                border: Border.all(color: AppTheme.background, width: 2),
+          if (!CategoryProvider.isBuiltIn(_name))
+            Positioned(
+              right: 0,
+              bottom: 4,
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.gold,
+                  border: Border.all(color: AppTheme.background, width: 2),
+                ),
+                child:
+                    const Icon(Icons.edit, size: 15, color: Color(0xFF1A1A00)),
               ),
-              child: const Icon(Icons.edit, size: 15, color: Color(0xFF1A1A00)),
             ),
-          ),
         ],
       ),
     );

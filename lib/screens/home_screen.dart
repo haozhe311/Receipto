@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_icons.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
 import 'package:receipto/screens/wallets_screen.dart';
-import 'package:receipto/widgets/category_chip.dart';
+import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/summary_card.dart';
 import 'package:receipto/widgets/transaction_tile.dart';
@@ -102,10 +103,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   net: provider.netSavings,
                 ),
 
-              // Category filter chips
+              // Category filter control
               _CategoryFilterBar(
                 selectedCategory: provider.selectedCategory,
-                onCategorySelected: provider.filterByCategory,
               ),
 
               // Transaction list or empty state
@@ -335,39 +335,101 @@ class _CashFlowStrip extends StatelessWidget {
   }
 }
 
-/// Horizontal scrollable row of category filter chips.
+/// A full-width "Filter" row for the Home transaction list, styled like the
+/// Category / Account selector rows in Add Transaction: filter icon + "Filter"
+/// on the left, and a chevron on the right — or, once a filter is active, the
+/// selected category's icon + name. Tapping opens the shared [CategorySheet],
+/// configured for category-level filtering: no search, no subcategory
+/// drill-down, and an "All Categories" row to clear.
 class _CategoryFilterBar extends StatelessWidget {
   final String? selectedCategory;
-  final void Function(String?) onCategorySelected;
 
-  const _CategoryFilterBar({
-    required this.selectedCategory,
-    required this.onCategorySelected,
-  });
+  const _CategoryFilterBar({required this.selectedCategory});
+
+  Future<void> _openFilterSheet(BuildContext context) async {
+    final catProvider = context.read<CategoryProvider>();
+    final txProvider = context.read<TransactionProvider>();
+    final result = await showModalBottomSheet<CategoryPick>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CategorySheet(
+        categories: catProvider.categories,
+        selected: selectedCategory,
+        title: 'Filter by Category',
+        allRowLabel: 'All Categories',
+        showManage: false,
+        showSearch: false,
+        allowSubcategoryDrillDown: false,
+      ),
+    );
+    if (result is CategoryPickValue) {
+      // Category-level filter: match the parent plus all of its subcategories,
+      // so e.g. "Transport" shows Fuel + Maintenance + directly-tagged rows.
+      final cat = catProvider.byName(result.value);
+      txProvider.filterByCategory(
+        result.value,
+        includeValues: [
+          result.value,
+          if (cat != null) ...cat.subcategories,
+        ],
+      );
+    } else if (result is CategoryPickAll) {
+      txProvider.filterByCategory(null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final categories = context.watch<CategoryProvider>().categories;
-    return SizedBox(
-      height: 50,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          // "All" chip
-          CategoryChip(
-            category: 'All',
-            isSelected: selectedCategory == null,
-            onTap: () => onCategorySelected(null),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: InkWell(
+        onTap: () => _openFilterSheet(context),
+        borderRadius: BorderRadius.circular(12),
+        child: InputDecorator(
+          // An empty decoration inherits the app's input-row styling (surface
+          // fill, 12px corners, border, padding) — identical to the Category /
+          // Account selector rows in Add Transaction.
+          decoration: const InputDecoration(),
+          child: Row(
+            children: [
+              const Icon(Icons.filter_list, size: 22, color: AppTheme.textMuted),
+              const SizedBox(width: 12),
+              Text('Filter', style: Theme.of(context).textTheme.bodyLarge),
+              const Spacer(),
+              _trailing(context),
+            ],
           ),
-          // Dynamic category chips from CategoryProvider
-          ...categories.map(
-            (cat) => CategoryChip(
-              category: cat.name,
-              iconKey: cat.iconKey,
-              emoji: cat.emoji,
-              isSelected: selectedCategory == cat.name,
-              onTap: () => onCategorySelected(cat.name),
+        ),
+      ),
+    );
+  }
+
+  /// Right-aligned trailing content: a chevron when no filter is active, or the
+  /// selected category's icon + name once a filter is applied.
+  Widget _trailing(BuildContext context) {
+    if (selectedCategory == null) {
+      return const Icon(Icons.chevron_right, color: AppTheme.textMuted);
+    }
+    final option = CategoryIcons.resolve(
+      selectedCategory!,
+      context.read<CategoryProvider>().byName(selectedCategory!)?.iconKey,
+    );
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(option.icon, size: 20, color: option.color),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              selectedCategory!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.gold,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

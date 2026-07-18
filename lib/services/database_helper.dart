@@ -239,6 +239,7 @@ class DatabaseHelper {
   /// Results are ordered by date descending (most recent first).
   Future<List<model.Transaction>> getTransactions({
     String? category,
+    List<String>? categories,
     DateTime? from,
     DateTime? to,
     int? limit,
@@ -249,7 +250,11 @@ class DatabaseHelper {
     final List<String> whereClauses = [];
     final List<dynamic> whereArgs = [];
 
-    if (category != null) {
+    if (categories != null && categories.isNotEmpty) {
+      whereClauses
+          .add('category IN (${List.filled(categories.length, '?').join(', ')})');
+      whereArgs.addAll(categories);
+    } else if (category != null) {
       whereClauses.add('category = ?');
       whereArgs.add(category);
     }
@@ -278,6 +283,7 @@ class DatabaseHelper {
   /// Used by the provider to show an accurate count even with pagination.
   Future<int> getTransactionCount({
     String? category,
+    List<String>? categories,
     DateTime? from,
     DateTime? to,
   }) async {
@@ -286,7 +292,11 @@ class DatabaseHelper {
     final List<String> whereClauses = [];
     final List<dynamic> whereArgs = [];
 
-    if (category != null) {
+    if (categories != null && categories.isNotEmpty) {
+      whereClauses
+          .add('category IN (${List.filled(categories.length, '?').join(', ')})');
+      whereArgs.addAll(categories);
+    } else if (category != null) {
       whereClauses.add('category = ?');
       whereArgs.add(category);
     }
@@ -341,7 +351,11 @@ class DatabaseHelper {
 
   /// Returns the total EXPENSE spending for a given month (defaults to current).
   /// Optionally filtered to a single [category]. Income is excluded.
-  Future<double> getMonthlyTotal({DateTime? month, String? category}) async {
+  Future<double> getMonthlyTotal({
+    DateTime? month,
+    String? category,
+    List<String>? categories,
+  }) async {
     final db = await database;
     final now = month ?? DateTime.now();
     final firstDay = DateTime(now.year, now.month, 1);
@@ -353,7 +367,11 @@ class DatabaseHelper {
       lastDay.toIso8601String().split('T').first,
     ];
 
-    if (category != null) {
+    if (categories != null && categories.isNotEmpty) {
+      whereParts
+          .add('category IN (${List.filled(categories.length, '?').join(', ')})');
+      args.addAll(categories);
+    } else if (category != null) {
       whereParts.add('category = ?');
       args.add(category);
     }

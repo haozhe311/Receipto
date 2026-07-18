@@ -43,6 +43,21 @@ class CategoryProvider extends ChangeNotifier {
     return null;
   }
 
+  /// If [value] is a subcategory, returns the name of its parent category;
+  /// otherwise null. Used so a transaction tagged with a subcategory can still
+  /// resolve the parent's icon and be recognised as a valid selection.
+  String? parentOf(String value) {
+    for (final c in _categories) {
+      if (c.subcategories.contains(value)) return c.name;
+    }
+    return null;
+  }
+
+  /// True if [value] is a valid transaction category — either a top-level
+  /// category or a subcategory of one.
+  bool isSelectable(String value) =>
+      byName(value) != null || parentOf(value) != null;
+
   /// Loads categories from the SQLite settings table.
   /// Falls back to [_defaults] if nothing is stored yet.
   Future<void> loadCategories() async {
@@ -54,16 +69,56 @@ class CategoryProvider extends ChangeNotifier {
       _categories = list
           .map((e) => CategoryModel.fromJson(e as Map<String, dynamic>))
           .toList();
-
-      // Always guarantee "Others" as the last-resort fallback.
-      if (!_categories.any((c) => c.name == protectedName)) {
-        _categories.add(
-          const CategoryModel(name: protectedName, iconKey: 'others'),
-        );
-      }
     }
+
+    // Clean the loaded data every launch: heal built-in icons, drop duplicate
+    // rows, and guarantee "Others" exists. If anything was off, write the
+    // corrected data straight back so storage self-heals.
+    final (cleaned, changed) = sanitize(_categories);
+    _categories = cleaned;
+    if (changed) await _persist();
+
     notifyListeners();
   }
+
+  /// Normalises a category list:
+  ///  - drops duplicate names (case-insensitive, keeping the first),
+  ///  - forces every built-in category to its canonical icon (so a corrupted
+  ///    or stale `iconKey` self-heals on load — the built-ins are pinned),
+  ///  - guarantees the protected "Others" category is present.
+  ///
+  /// Returns the cleaned list and whether anything actually changed. Pure and
+  /// side-effect free so it can be unit-tested without a database.
+  @visibleForTesting
+  static (List<CategoryModel>, bool) sanitize(List<CategoryModel> input) {
+    var changed = false;
+    final seen = <String>{};
+    final out = <CategoryModel>[];
+
+    for (final c in input) {
+      if (!seen.add(c.name.toLowerCase())) {
+        changed = true; // duplicate row dropped
+        continue;
+      }
+      final canonical = CategoryIcons.builtInKeyFor(c.name);
+      if (canonical != null && c.iconKey != canonical) {
+        out.add(c.copyWith(iconKey: canonical)); // heal drifted built-in icon
+        changed = true;
+      } else {
+        out.add(c);
+      }
+    }
+
+    if (!out.any((c) => c.name == protectedName)) {
+      out.add(const CategoryModel(name: protectedName, iconKey: 'others'));
+      changed = true;
+    }
+    return (out, changed);
+  }
+
+  /// True for the built-in categories, whose icons are fixed (pinned).
+  static bool isBuiltIn(String name) =>
+      CategoryIcons.builtInKeyFor(name) != null;
 
   /// Adds a new category with an icon swatch. Does nothing if a category with
   /// the same name (case-insensitive) already exists.
@@ -89,8 +144,11 @@ class CategoryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Changes a category's icon swatch.
+  /// Changes a category's icon swatch. Built-in categories are pinned to their
+  /// canonical icon and cannot be changed — this is the authoritative guard
+  /// that stops a stray tap (or any caller) from corrupting them.
   Future<void> setIcon(String name, String iconKey) async {
+    if (isBuiltIn(name)) return;
     final idx = _categories.indexWhere((c) => c.name == name);
     if (idx == -1) return;
     _categories[idx] = _categories[idx].copyWith(iconKey: iconKey);

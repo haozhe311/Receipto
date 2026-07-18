@@ -3,18 +3,18 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
-import 'package:receipto/constants/category_icons.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/account.dart';
-import 'package:receipto/models/category_model.dart';
 import 'package:receipto/models/transaction.dart' as model;
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
+import 'package:receipto/screens/manage_categories_screen.dart';
 import 'package:receipto/screens/split_screen.dart';
 import 'package:receipto/services/ai_service.dart';
 import 'package:receipto/services/ocr_service.dart';
+import 'package:receipto/widgets/category_picker_sheet.dart';
 
 /// Screen for manually adding a new transaction or editing an existing one.
 ///
@@ -61,12 +61,12 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     _type = t?.type ?? 'expense';
     _scannedViaOcr = t?.isOcr ?? false;
 
-    // Fall back to 'Others' if the stored category was deleted.
-    final knownCategories = context.read<CategoryProvider>().categoryNames;
-    _selectedCategory =
-        (t != null && knownCategories.contains(t.category))
-            ? t.category
-            : 'Others';
+    // Keep the stored value if it's still a valid category OR subcategory;
+    // otherwise fall back to 'Others'.
+    final categoryProvider = context.read<CategoryProvider>();
+    _selectedCategory = (t != null && categoryProvider.isSelectable(t.category))
+        ? t.category
+        : 'Others';
 
     // Payment method now maps to an account. Fall back to the first account
     // (or 'Cash') if the stored one no longer exists.
@@ -395,11 +395,22 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
 
   // ── Category / Account selectors ────────────────────────────────────────────
 
-  /// Leading widget for a category: its icon swatch, falling back to the
-  /// legacy emoji for categories saved before swatches existed.
-  Widget _categoryLeading(String name) {
-    final cat = context.read<CategoryProvider>().byName(name);
-    return _categoryIconWidget(name, cat?.iconKey, cat?.emoji ?? '');
+  /// Leading widget for the selected category value. Top-level categories use
+  /// their own swatch (or legacy emoji); a subcategory inherits its parent's
+  /// icon so the row still shows a meaningful icon.
+  Widget _categoryLeading(String value) {
+    final provider = context.read<CategoryProvider>();
+    final cat = provider.byName(value);
+    if (cat != null) {
+      return categoryIconWidget(value, cat.iconKey, cat.emoji);
+    }
+    final parentName = provider.parentOf(value);
+    if (parentName != null) {
+      final parent = provider.byName(parentName);
+      return categoryIconWidget(
+          parentName, parent?.iconKey, parent?.emoji ?? '');
+    }
+    return categoryIconWidget(value, null, '');
   }
 
   /// Leading widget for an account, based on its type.
@@ -419,17 +430,29 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   }
 
   Future<void> _openCategorySheet() async {
-    final picked = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<CategoryPick>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _CategorySheet(
+      builder: (_) => CategorySheet(
         categories: context.read<CategoryProvider>().categories,
         selected: _selectedCategory,
       ),
     );
-    if (picked != null && mounted) {
-      setState(() => _selectedCategory = picked);
+    if (result == null || !mounted) return;
+    if (result is CategoryPickValue) {
+      setState(() => _selectedCategory = result.value);
+    } else if (result is CategoryPickManage) {
+      _openManageCategories();
     }
+  }
+
+  /// Opens Manage Categories on the root navigator, above this Add Transaction
+  /// screen. Because Add Transaction is only covered (not popped/disposed), all
+  /// its entered fields are preserved, and pressing back returns here.
+  void _openManageCategories() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ManageCategoriesScreen()),
+    );
   }
 
   Future<void> _openAccountSheet() async {
@@ -538,18 +561,6 @@ class _DatePickerTile extends StatelessWidget {
   }
 }
 
-/// Resolves a category's leading widget: its icon swatch, or the legacy emoji
-/// for categories saved before swatches existed. Shared by the selector row
-/// and the picker sheet so they always agree.
-Widget _categoryIconWidget(String name, String? iconKey, String emoji) {
-  final hasSwatch = iconKey != null || CategoryIcons.builtInKeyFor(name) != null;
-  if (!hasSwatch && emoji.isNotEmpty) {
-    return Text(emoji, style: const TextStyle(fontSize: 16, height: 1));
-  }
-  final option = CategoryIcons.resolve(name, iconKey);
-  return Icon(option.icon, size: 20, color: option.color);
-}
-
 // ── Selector row ──────────────────────────────────────────────────────────────
 
 /// A single-line selector row styled like [_DatePickerTile]: floating label,
@@ -587,261 +598,6 @@ class _SelectorTile extends StatelessWidget {
 
 // ── Picker sheets ─────────────────────────────────────────────────────────────
 
-/// Shared chrome for the selector bottom sheets: drag handle, title, search
-/// field, and a scrollable list of option rows.
-class _PickerSheet extends StatelessWidget {
-  final String title;
-  final TextEditingController searchController;
-  final ValueChanged<String> onQueryChanged;
-  final List<Widget> rows;
-
-  const _PickerSheet({
-    required this.title,
-    required this.searchController,
-    required this.onQueryChanged,
-    required this.rows,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.75,
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppTheme.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: TextField(
-                  controller: searchController,
-                  onChanged: onQueryChanged,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'Search',
-                    prefixIcon: Icon(Icons.search, size: 20),
-                  ),
-                ),
-              ),
-              Flexible(
-                child: rows.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 28),
-                        child: Text(
-                          'No matches',
-                          style: TextStyle(
-                            color: AppTheme.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    : ListView(shrinkWrap: true, children: rows),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One selectable option row. Uniform height and easy to scan.
-///
-/// Supports nesting so subcategories can be added later: [depth] indents the
-/// row, and when [hasChildren] is true a chevron-down/up toggle is shown that
-/// calls [onToggleExpand] to reveal indented children beneath it.
-class _OptionRow extends StatelessWidget {
-  final String label;
-  final Widget leading;
-  final bool isSelected;
-  final VoidCallback onSelect;
-
-  /// Nesting support (ready for subcategories).
-  final int depth;
-  final bool hasChildren;
-  final bool isExpanded;
-  final VoidCallback? onToggleExpand;
-
-  const _OptionRow({
-    required this.label,
-    required this.leading,
-    required this.isSelected,
-    required this.onSelect,
-    this.depth = 0,
-    this.hasChildren = false,
-    this.isExpanded = false,
-    this.onToggleExpand,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onSelect,
-      child: Container(
-        height: 52,
-        padding: EdgeInsets.only(left: 16 + depth * 24.0, right: 8),
-        child: Row(
-          children: [
-            SizedBox(width: 24, child: Center(child: leading)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isSelected ? AppTheme.gold : AppTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check, size: 18, color: AppTheme.gold),
-            // Expand/collapse toggle — appears once a row has children.
-            if (hasChildren)
-              IconButton(
-                icon: Icon(
-                  isExpanded ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
-                ),
-                color: AppTheme.textMuted,
-                onPressed: onToggleExpand,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Category picker. Rows are built through [_OptionRow] so that subcategories
-/// (e.g. Groceries / Dining / Coffee under Food) render indented beneath their
-/// parent as soon as [_childrenOf] returns them.
-class _CategorySheet extends StatefulWidget {
-  final List<CategoryModel> categories;
-  final String selected;
-
-  const _CategorySheet({required this.categories, required this.selected});
-
-  @override
-  State<_CategorySheet> createState() => _CategorySheetState();
-}
-
-class _CategorySheetState extends State<_CategorySheet> {
-  final _searchController = TextEditingController();
-  final Set<String> _expanded = {};
-  String _query = '';
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  /// Subcategories are not implemented yet, so every category is a leaf.
-  /// When subcategory management ships, return the children here and the
-  /// sheet will render them indented under their parent automatically.
-  List<CategoryModel> _childrenOf(CategoryModel parent) => const [];
-
-  Widget _leadingFor(CategoryModel c) =>
-      _categoryIconWidget(c.name, c.iconKey, c.emoji);
-
-  bool _matches(CategoryModel c) =>
-      c.name.toLowerCase().contains(_query.trim().toLowerCase());
-
-  List<Widget> _buildRows() {
-    final rows = <Widget>[];
-    for (final cat in widget.categories) {
-      final children = _childrenOf(cat);
-      final matchingChildren = children.where(_matches).toList();
-
-      // Keep a parent if it matches, or if any of its children match.
-      if (!_matches(cat) && matchingChildren.isEmpty) continue;
-
-      final isExpanded = _expanded.contains(cat.name);
-      rows.add(
-        _OptionRow(
-          label: cat.name,
-          leading: _leadingFor(cat),
-          isSelected: cat.name == widget.selected,
-          onSelect: () => Navigator.of(context).pop(cat.name),
-          hasChildren: children.isNotEmpty,
-          isExpanded: isExpanded,
-          onToggleExpand: children.isEmpty
-              ? null
-              : () => setState(() {
-                    if (isExpanded) {
-                      _expanded.remove(cat.name);
-                    } else {
-                      _expanded.add(cat.name);
-                    }
-                  }),
-        ),
-      );
-
-      // Children render indented beneath their parent when expanded (or when
-      // a search matched them).
-      final showChildren =
-          isExpanded || (_query.isNotEmpty && matchingChildren.isNotEmpty);
-      if (showChildren) {
-        for (final child in matchingChildren.isEmpty && isExpanded
-            ? children
-            : matchingChildren) {
-          rows.add(
-            _OptionRow(
-              depth: 1,
-              label: child.name,
-              leading: _leadingFor(child),
-              isSelected: child.name == widget.selected,
-              onSelect: () => Navigator.of(context).pop(child.name),
-            ),
-          );
-        }
-      }
-    }
-    return rows;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _PickerSheet(
-      title: 'Select Category',
-      searchController: _searchController,
-      onQueryChanged: (v) => setState(() => _query = v),
-      rows: _buildRows(),
-    );
-  }
-}
-
 /// Account picker.
 class _AccountSheet extends StatefulWidget {
   final List<Account> accounts;
@@ -863,17 +619,44 @@ class _AccountSheetState extends State<_AccountSheet> {
     super.dispose();
   }
 
+  /// Lightweight name-only account creation from the picker header: prompt for
+  /// a name, create the account with a guessed type (opening balance 0), then
+  /// select it and close the sheet. Mirrors the quick-add flow used elsewhere —
+  /// full account setup still lives on the Wallets screen.
+  Future<void> _quickAddAccount() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => const _QuickAddAccountDialog(),
+    );
+    if (name == null || !mounted) return;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final provider = context.read<AccountProvider>();
+    // Reuse an existing account with the same name rather than duplicating it.
+    final exists = provider.accountNames
+        .any((n) => n.toLowerCase() == trimmed.toLowerCase());
+    if (!exists) {
+      await provider.addAccount(
+        name: trimmed,
+        type: AccountProvider.guessType(trimmed),
+        openingBalance: 0,
+      );
+    }
+    if (mounted) Navigator.of(context).pop(trimmed);
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = _query.trim().toLowerCase();
-    final rows = [
+    final specs = <RowSpec>[
       for (final a in widget.accounts)
         if (a.name.toLowerCase().contains(q))
-          _OptionRow(
+          RowSpec(
             label: a.name,
             leading: Icon(
               AppConstants.accountTypeIcons[a.type] ?? Icons.wallet,
-              size: 20,
+              size: kCatIconSize,
               color: AppTheme.gold,
             ),
             isSelected: a.name == widget.selected,
@@ -881,11 +664,75 @@ class _AccountSheetState extends State<_AccountSheet> {
           ),
     ];
 
-    return _PickerSheet(
+    return PickerSheet(
       title: 'Select Account',
+      fillHeight: true,
       searchController: _searchController,
       onQueryChanged: (v) => setState(() => _query = v),
-      rows: rows,
+      rows: pickerRows(specs),
+      action: IconButton(
+        icon: const Icon(Icons.add, size: 22),
+        tooltip: 'Add account',
+        color: AppTheme.gold,
+        onPressed: _quickAddAccount,
+      ),
+    );
+  }
+}
+
+/// Simple name-only dialog for quick-adding an account from the picker sheet.
+/// Returns the entered name (or null on cancel).
+class _QuickAddAccountDialog extends StatefulWidget {
+  const _QuickAddAccountDialog();
+
+  @override
+  State<_QuickAddAccountDialog> createState() => _QuickAddAccountDialogState();
+}
+
+class _QuickAddAccountDialogState extends State<_QuickAddAccountDialog> {
+  final _controller = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      setState(() => _error = 'Enter an account name');
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Account'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        decoration: InputDecoration(
+          labelText: 'Account name',
+          hintText: 'e.g. Cash, Maybank, TNG',
+          errorText: _error,
+        ),
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
+        onSubmitted: (_) => _save(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(onPressed: _save, child: const Text('Add')),
+      ],
     );
   }
 }
