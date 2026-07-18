@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:receipto/constants/category_icons.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/category_model.dart';
+import 'package:receipto/widgets/glass.dart';
 
 /// Shared full-height category picker used by both the Add Transaction
 /// "Select Category" flow and the Home "Filter by Category" flow.
@@ -39,9 +40,14 @@ class CategoryPickManage extends CategoryPick {
 /// Resolves a category's leading widget: its icon swatch, or the legacy emoji
 /// for categories saved before swatches existed. Shared by the selector row and
 /// the picker sheet so they always agree.
-Widget categoryIconWidget(String name, String? iconKey, String emoji,
-    [double size = 20]) {
-  final hasSwatch = iconKey != null || CategoryIcons.builtInKeyFor(name) != null;
+Widget categoryIconWidget(
+  String name,
+  String? iconKey,
+  String emoji, [
+  double size = 20,
+]) {
+  final hasSwatch =
+      iconKey != null || CategoryIcons.builtInKeyFor(name) != null;
   if (!hasSwatch && emoji.isNotEmpty) {
     return Text(emoji, style: TextStyle(fontSize: size * 0.85, height: 1));
   }
@@ -94,18 +100,20 @@ List<Widget> pickerRows(List<RowSpec> specs) {
   final rows = <Widget>[];
   for (final s in specs) {
     if (rows.isNotEmpty) rows.add(kPickerDivider);
-    rows.add(OptionRow(
-      label: s.label,
-      leading: s.leading,
-      isSelected: s.isSelected,
-      showCheck: s.showCheck,
-      trailing: s.trailing,
-      labelSize: kCatLabelSize,
-      labelWeight: kCatLabelWeight,
-      rowHeight: kCatRowHeight,
-      leadingWidth: kCatLeadingWidth,
-      onSelect: s.onSelect,
-    ));
+    rows.add(
+      OptionRow(
+        label: s.label,
+        leading: s.leading,
+        isSelected: s.isSelected,
+        showCheck: s.showCheck,
+        trailing: s.trailing,
+        labelSize: kCatLabelSize,
+        labelWeight: kCatLabelWeight,
+        rowHeight: kCatRowHeight,
+        leadingWidth: kCatLeadingWidth,
+        onSelect: s.onSelect,
+      ),
+    );
   }
   return rows;
 }
@@ -157,7 +165,10 @@ class OptionRow extends StatelessWidget {
         padding: const EdgeInsets.only(left: 16, right: 8),
         child: Row(
           children: [
-            SizedBox(width: leadingWidth, child: Center(child: leading)),
+            SizedBox(
+              width: leadingWidth,
+              child: Center(child: leading),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
@@ -287,17 +298,21 @@ class PickerSheet extends StatelessWidget {
       // From just below the app bar to the bottom, shrinking above the keyboard.
       final height =
           media.size.height - media.viewPadding.top - kToolbarHeight - keyboard;
-      return SizedBox(
-        height: height > 0 ? height : null,
-        child: SafeArea(top: false, child: column),
+      return GlassSheetBackground(
+        child: SizedBox(
+          height: height > 0 ? height : null,
+          child: SafeArea(top: false, child: column),
+        ),
       );
     }
 
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: media.size.height * 0.75),
-        child: SafeArea(top: false, child: column),
+      child: GlassSheetBackground(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: media.size.height * 0.75),
+          child: SafeArea(top: false, child: column),
+        ),
       ),
     );
   }
@@ -402,20 +417,27 @@ class _CategorySheetState extends State<CategorySheet> {
     // Optional pinned "All …" row (filter context): full-size icon, styled like
     // a top-level row, and selected when no filter is active. Clears the filter.
     if (widget.allRowLabel != null) {
-      specs.add(RowSpec(
-        label: widget.allRowLabel!,
-        leading: const Icon(Icons.apps, size: kCatIconSize, color: AppTheme.gold),
-        isSelected: widget.selected == null,
-        onSelect: () => Navigator.of(context).pop(const CategoryPickAll()),
-      ));
+      specs.add(
+        RowSpec(
+          label: widget.allRowLabel!,
+          leading: const Icon(
+            Icons.apps,
+            size: kCatIconSize,
+            color: AppTheme.gold,
+          ),
+          isSelected: widget.selected == null,
+          onSelect: () => Navigator.of(context).pop(const CategoryPickAll()),
+        ),
+      );
     }
 
     for (final cat in widget.categories) {
       // Search matches the category name or any of its subcategory names.
       if (q.isNotEmpty) {
         final nameMatch = cat.name.toLowerCase().contains(q);
-        final subMatch =
-            cat.subcategories.any((s) => s.toLowerCase().contains(q));
+        final subMatch = cat.subcategories.any(
+          (s) => s.toLowerCase().contains(q),
+        );
         if (!nameMatch && !subMatch) continue;
       }
 
@@ -423,12 +445,15 @@ class _CategorySheetState extends State<CategorySheet> {
         // Leaf, or drill-down disabled: selecting the category applies it
         // directly (no Step 2). What "applying a parent" means is up to the
         // caller — the Home filter expands it to the parent + subcategories.
-        specs.add(RowSpec(
-          label: cat.name,
-          leading: _leadingFor(cat),
-          isSelected: cat.name == widget.selected,
-          onSelect: () => Navigator.of(context).pop(CategoryPickValue(cat.name)),
-        ));
+        specs.add(
+          RowSpec(
+            label: cat.name,
+            leading: _leadingFor(cat),
+            isSelected: cat.name == widget.selected,
+            onSelect: () =>
+                Navigator.of(context).pop(CategoryPickValue(cat.name)),
+          ),
+        );
       } else {
         // Parent: navigate to Step 2. Highlight when the current selection
         // belongs here, and badge the specific subcategory if one is selected.
@@ -437,22 +462,27 @@ class _CategorySheetState extends State<CategorySheet> {
             : null;
         final selectionInHere =
             widget.selected == cat.name || selectedSub != null;
-        specs.add(RowSpec(
-          label: cat.name,
-          leading: _leadingFor(cat),
-          isSelected: selectionInHere,
-          showCheck: false,
-          onSelect: () => _openSubcategories(cat),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (selectedSub != null) _subcategoryBadge(selectedSub),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right,
-                  size: 20, color: AppTheme.textMuted),
-            ],
+        specs.add(
+          RowSpec(
+            label: cat.name,
+            leading: _leadingFor(cat),
+            isSelected: selectionInHere,
+            showCheck: false,
+            onSelect: () => _openSubcategories(cat),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selectedSub != null) _subcategoryBadge(selectedSub),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppTheme.textMuted,
+                ),
+              ],
+            ),
           ),
-        ));
+        );
       }
     }
     return pickerRows(specs);
@@ -507,80 +537,84 @@ class SubcategorySheet extends StatelessWidget {
     // Near-full height: from just below the app bar to the bottom, matching the
     // Select Category sheet. Rows stay top-aligned; empty space below the last
     // row is expected when there are few subcategories.
-    final height = media.size.height -
+    final height =
+        media.size.height -
         media.viewPadding.top -
         kToolbarHeight -
         media.viewInsets.bottom;
-    return SizedBox(
-      height: height > 0 ? height : null,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTheme.border,
-                borderRadius: BorderRadius.circular(2),
+    return GlassSheetBackground(
+      child: SizedBox(
+        height: height > 0 ? height : null,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            // Back button + category name as the title + optional manage pencil.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 20),
-                    tooltip: 'Back',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  Expanded(
-                    child: Text(
-                      category.name,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (showManage)
+              // Back button + category name as the title + optional manage pencil.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                child: Row(
+                  children: [
                     IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      tooltip: 'Manage categories',
-                      color: AppTheme.gold,
-                      onPressed: () =>
-                          Navigator.of(context).pop(const CategoryPickManage()),
+                      icon: const Icon(Icons.arrow_back, size: 20),
+                      tooltip: 'Back',
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                // Only subcategories are selectable — the user must pick a
-                // specific one. Each is a smaller, ~75%-opacity version of the
-                // parent's icon. Shares the same row builder as the other sheets.
-                children: pickerRows([
-                  for (final sub in category.subcategories)
-                    RowSpec(
-                      label: sub,
-                      leading: Icon(
-                        parentOption.icon,
-                        size: kSubIconSize,
-                        color: parentOption.color.withAlpha(191),
+                    Expanded(
+                      child: Text(
+                        category.name,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      isSelected: selected == sub,
-                      onSelect: () =>
-                          Navigator.of(context).pop(CategoryPickValue(sub)),
                     ),
-                ]),
+                    if (showManage)
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        tooltip: 'Manage categories',
+                        color: AppTheme.gold,
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pop(const CategoryPickManage()),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
+              Expanded(
+                child: ListView(
+                  // Only subcategories are selectable — the user must pick a
+                  // specific one. Each is a smaller, ~75%-opacity version of the
+                  // parent's icon. Shares the same row builder as the other sheets.
+                  children: pickerRows([
+                    for (final sub in category.subcategories)
+                      RowSpec(
+                        label: sub,
+                        leading: Icon(
+                          parentOption.icon,
+                          size: kSubIconSize,
+                          color: parentOption.color.withAlpha(191),
+                        ),
+                        isSelected: selected == sub,
+                        onSelect: () =>
+                            Navigator.of(context).pop(CategoryPickValue(sub)),
+                      ),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );

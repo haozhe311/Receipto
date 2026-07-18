@@ -45,6 +45,10 @@ class AppTheme {
   static const Color onGlass = Color(0xD9FFFFFF); // ~0.85 white — primary text
   static const Color onGlassMuted = Color(0x99FFFFFF); // ~0.60 white — labels
   static const Color onGlassFaint = Color(0x66FFFFFF); // ~0.40 white — hints
+
+  /// Frosted fill for modal bottom sheets — translucent dark over a real blur
+  /// of the dimmed page, kept legible for large content sheets.
+  static const Color glassSheetFill = Color(0xB8252540); // ~0.72 surface
   /// Drop shadow beneath hero glass cards.
   static const Color glassShadow = Color(0x59140A3C); // rgba(20,10,60,0.35)
 
@@ -245,10 +249,13 @@ class AppTheme {
         ),
       ),
 
-      // Bottom sheets
+      // Bottom sheets — transparent so sheets can paint their own frosted glass
+      // (see GlassSheetBackground); opaque surface would hide the backdrop.
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: surface,
+        backgroundColor: Colors.transparent,
+        modalBackgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
