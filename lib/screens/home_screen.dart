@@ -11,6 +11,7 @@ import 'package:receipto/screens/add_edit_transaction_screen.dart';
 import 'package:receipto/screens/wallets_screen.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/empty_state.dart';
+import 'package:receipto/widgets/glass.dart';
 import 'package:receipto/widgets/summary_card.dart';
 import 'package:receipto/widgets/transaction_tile.dart';
 
@@ -51,9 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppConstants.appName),
-      ),
+      appBar: const GlassAppBar(title: Text(AppConstants.appName)),
       body: Consumer<TransactionProvider>(
         builder: (context, provider, _) {
           // Scroll to top whenever the user navigates to a different month.
@@ -104,9 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
               // Category filter control
-              _CategoryFilterBar(
-                selectedCategory: provider.selectedCategory,
-              ),
+              _CategoryFilterBar(selectedCategory: provider.selectedCategory),
 
               // Transaction list or empty state
               Expanded(
@@ -152,9 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               if (transaction.id != null) {
                                 provider.deleteTransaction(transaction.id!);
                                 // Refresh account balances / net worth.
-                                context
-                                    .read<AccountProvider>()
-                                    .loadAccounts();
+                                context.read<AccountProvider>().loadAccounts();
                               }
                             },
                           );
@@ -168,13 +163,9 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const AddEditTransactionScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const AddEditTransactionScreen()),
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: const Icon(Icons.add),
       ),
     );
@@ -196,52 +187,49 @@ class _NetWorthCard extends StatelessWidget {
     return Consumer<AccountProvider>(
       builder: (context, accounts, _) {
         final netWorth = accounts.netWorth;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WalletsScreen()),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
+        return HeroGlassCard(
+          margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          borderRadius: 16,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const WalletsScreen()),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.account_balance_wallet,
+                size: 18,
+                color: AppTheme.gold,
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet,
-                      size: 18, color: AppTheme.gold),
-                  const SizedBox(width: 10),
-                  Text(
-                    'NET WORTH',
-                    style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    fmt.format(netWorth),
-                    style: TextStyle(
-                      color: netWorth >= 0
-                          ? AppTheme.gold
-                          : const Color(0xFFFF6B6B),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  const Icon(Icons.chevron_right,
-                      size: 18, color: Color(0xFF555577)),
-                ],
+              const SizedBox(width: 10),
+              Text(
+                'NET WORTH',
+                style: TextStyle(
+                  color: AppTheme.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                ),
               ),
-            ),
+              const Spacer(),
+              Text(
+                fmt.format(netWorth),
+                style: TextStyle(
+                  color: netWorth >= 0
+                      ? AppTheme.gold
+                      : const Color(0xFFFF6B6B),
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: Color(0xFF555577),
+              ),
+            ],
           ),
         );
       },
@@ -296,13 +284,9 @@ class _CashFlowStrip extends StatelessWidget {
     Color valueColor,
   ) {
     return Expanded(
-      child: Container(
+      child: ListGlassRow(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border),
-        ),
+        borderRadius: 12,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -368,10 +352,7 @@ class _CategoryFilterBar extends StatelessWidget {
       final cat = catProvider.byName(result.value);
       txProvider.filterByCategory(
         result.value,
-        includeValues: [
-          result.value,
-          if (cat != null) ...cat.subcategories,
-        ],
+        includeValues: [result.value, if (cat != null) ...cat.subcategories],
       );
     } else if (result is CategoryPickAll) {
       txProvider.filterByCategory(null);
@@ -382,23 +363,19 @@ class _CategoryFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: InkWell(
+      child: ListGlassRow(
+        // Same glass family as the transaction rows below; the InputDecorator
+        // fill would be opaque, so this reads as one surface with the list.
         onTap: () => _openFilterSheet(context),
-        borderRadius: BorderRadius.circular(12),
-        child: InputDecorator(
-          // An empty decoration inherits the app's input-row styling (surface
-          // fill, 12px corners, border, padding) — identical to the Category /
-          // Account selector rows in Add Transaction.
-          decoration: const InputDecoration(),
-          child: Row(
-            children: [
-              const Icon(Icons.filter_list, size: 22, color: AppTheme.textMuted),
-              const SizedBox(width: 12),
-              Text('Filter', style: Theme.of(context).textTheme.bodyLarge),
-              const Spacer(),
-              _trailing(context),
-            ],
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            const Icon(Icons.filter_list, size: 22, color: AppTheme.textMuted),
+            const SizedBox(width: 12),
+            Text('Filter', style: Theme.of(context).textTheme.bodyLarge),
+            const Spacer(),
+            _trailing(context),
+          ],
         ),
       ),
     );

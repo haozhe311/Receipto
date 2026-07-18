@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/transaction.dart' as model;
+import 'package:receipto/widgets/glass.dart';
 
 /// A single transaction row displayed in the home screen list.
 ///
@@ -30,30 +31,35 @@ class TransactionTile extends StatelessWidget {
     final isIncome = transaction.isIncome;
     final icon = isIncome
         ? Icons.savings
-        : (AppConstants.categoryIcons[transaction.category] ?? Icons.more_horiz);
+        : (AppConstants.categoryIcons[transaction.category] ??
+              Icons.more_horiz);
     final color = isIncome
         ? const Color(0xFF4CAF50)
         : (AppConstants.categoryColors[transaction.category] ?? Colors.grey);
     final tint = isIncome
         ? const Color(0xFF16281A)
         : (AppConstants.categoryDarkTints[transaction.category] ??
-            AppTheme.surface);
+              AppTheme.surface);
 
-    return Dismissible(
-      key: ValueKey(transaction.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: const Color(0xFF3D1010),
-        child: const Icon(Icons.delete, color: Color(0xFFFF6B6B)),
-      ),
-      confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => onDelete(),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Dismissible(
+        key: ValueKey(transaction.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3D1010),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.delete, color: Color(0xFFFF6B6B)),
+        ),
+        confirmDismiss: (_) => _confirmDelete(context),
+        onDismissed: (_) => onDelete(),
+        child: ListGlassRow(
+          onTap: onTap,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               // Category icon container
@@ -153,7 +159,9 @@ class TransactionTile extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B6B)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFFF6B6B),
+            ),
             child: const Text('Delete'),
           ),
         ],

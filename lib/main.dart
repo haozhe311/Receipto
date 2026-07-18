@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
@@ -14,6 +16,7 @@ import 'package:receipto/screens/chatbot_screen.dart';
 import 'package:receipto/screens/home_screen.dart';
 import 'package:receipto/screens/settings_screen.dart';
 import 'package:receipto/services/backup_service.dart';
+import 'package:receipto/widgets/glass.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +42,9 @@ class ReceiptoApp extends StatelessWidget {
         title: AppConstants.appName,
         theme: AppTheme.darkTheme,
         debugShowCheckedModeBanner: false,
+        // Paint the shared glass backdrop once behind every route.
+        builder: (context, child) =>
+            GlassBackground(child: child ?? const SizedBox.shrink()),
         home: const AppShell(),
       ),
     );
@@ -123,43 +129,49 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       // IndexedStack preserves state across tab switches.
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: AppTheme.border, width: 1),
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      // Frosted-glass bottom bar: a real blur of the backdrop behind a
+      // translucent white fill. A single persistent instance, so the live blur
+      // is cheap (unlike per-row list blur, which we avoid).
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: AppTheme.glassRowFill,
+              border: Border(
+                top: BorderSide(color: AppTheme.glassBorderSoft, width: 1),
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                setState(() => _currentIndex = index);
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.bar_chart_outlined),
+                  selectedIcon: Icon(Icons.bar_chart),
+                  label: 'Analytics',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.smart_toy_outlined),
+                  selectedIcon: Icon(Icons.smart_toy),
+                  label: 'Chat',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: 'Settings',
+                ),
+              ],
+            ),
           ),
-        ),
-        child: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Analytics',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.smart_toy_outlined),
-            selectedIcon: Icon(Icons.smart_toy),
-            label: 'Chat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
         ),
       ),
     );

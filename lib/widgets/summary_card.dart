@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/widgets/glass.dart';
 
 /// Displays a spending summary card with month navigation,
 /// the selected month's total, and transaction count.
@@ -33,13 +34,10 @@ class SummaryCard extends StatelessWidget {
     );
     final monthLabel = DateFormat('MMMM yyyy').format(selectedMonth);
 
-    return Container(
+    return HeroGlassCard(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
-      ),
+      padding: EdgeInsets.zero,
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

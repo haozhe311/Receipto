@@ -5,64 +5,99 @@ import 'package:flutter/material.dart';
 /// Palette:
 ///   Background : #1A1A2E  (deep navy)
 ///   Surface    : #252540  (elevated panels / cards)
-///   Gold accent: #F4C542  (primary interactive colour)
+///   Gold accent: #F0C440  (primary interactive colour)
 ///   NavBar bg  : #141428  (darker than background)
 class AppTheme {
   AppTheme._();
 
-  static const Color background  = Color(0xFF1A1A2E);
-  static const Color surface     = Color(0xFF252540);
+  static const Color background = Color(0xFF1A1A2E);
+  static const Color surface = Color(0xFF252540);
   static const Color surfaceHigh = Color(0xFF2D2D50);
-  static const Color navBar      = Color(0xFF141428);
-  static const Color gold        = Color(0xFFF4C542);
-  static const Color goldDark    = Color(0xFF2D2D10);
-  static const Color border      = Color(0xFF35355A);
+  static const Color navBar = Color(0xFF141428);
+  static const Color gold = Color(0xFFF0C440);
+  static const Color goldDark = Color(0xFF2D2D10);
+  static const Color border = Color(0xFF35355A);
   static const Color textPrimary = Color(0xFFE8E8F0);
-  static const Color textMuted   = Color(0xFF8888AA);
+  static const Color textMuted = Color(0xFF8888AA);
+
+  // ── Glassmorphism backdrop + surfaces ─────────────────────────────────────
+  // The reskin paints a dark gradient with soft blurred blobs behind the whole
+  // app (see [GlassBackground]); glass panels are semi-transparent white tints
+  // that let that backdrop show through.
+
+  /// Vertical background gradient stops (deep indigo → deep navy).
+  static const Color bgGradientTop = Color(0xFF1A1440);
+  static const Color bgGradientMid = Color(0xFF0D1B3D);
+  static const Color bgGradientBottom = Color(0xFF14203A);
+
+  /// Soft, blurred backdrop blob colours.
+  static const Color blobPurple = Color(0xFF7A5CFF);
+  static const Color blobGold = Color(0xFFF0C440);
+  static const Color blobBlue = Color(0xFF4E9BFF);
+
+  /// Glass surface tints (white over the dark backdrop).
+  static const Color glassHeroFill = Color(
+    0x1AFFFFFF,
+  ); // ~0.10 white — hero cards
+  static const Color glassHeroTop = Color(
+    0x24FFFFFF,
+  ); // ~0.14 — hero top highlight
+  static const Color glassRowFill = Color(0x14FFFFFF); // ~0.08 — list rows
+  static const Color glassRowTop = Color(
+    0x1FFFFFFF,
+  ); // ~0.12 — row top highlight
+  static const Color glassBorder = Color(0x40FFFFFF); // ~0.25 — hero border
+  static const Color glassBorderSoft = Color(0x2EFFFFFF); // ~0.18 — row border
+  /// Drop shadow beneath hero glass cards.
+  static const Color glassShadow = Color(0x59140A3C); // rgba(20,10,60,0.35)
 
   static ThemeData get darkTheme {
     const colorScheme = ColorScheme(
       brightness: Brightness.dark,
-      primary:          gold,
-      onPrimary:        Color(0xFF1A1A00),
+      primary: gold,
+      onPrimary: Color(0xFF1A1A00),
       primaryContainer: goldDark,
       onPrimaryContainer: gold,
-      secondary:        Color(0xFF9B8FFF),
-      onSecondary:      Colors.white,
+      secondary: Color(0xFF9B8FFF),
+      onSecondary: Colors.white,
       secondaryContainer: Color(0xFF2A2045),
       onSecondaryContainer: Color(0xFFCCC0FF),
-      tertiary:         Color(0xFF6DCEF5),
-      onTertiary:       Colors.white,
+      tertiary: Color(0xFF6DCEF5),
+      onTertiary: Colors.white,
       tertiaryContainer: Color(0xFF1A2E40),
       onTertiaryContainer: Color(0xFFB0E8FF),
-      error:            Color(0xFFFF6B6B),
-      onError:          Colors.white,
-      errorContainer:   Color(0xFF3D1010),
+      error: Color(0xFFFF6B6B),
+      onError: Colors.white,
+      errorContainer: Color(0xFF3D1010),
       onErrorContainer: Color(0xFFFF9999),
-      surface:          surface,
-      onSurface:        textPrimary,
+      surface: surface,
+      onSurface: textPrimary,
       surfaceContainerHighest: surfaceHigh,
       onSurfaceVariant: textMuted,
-      outline:          border,
-      outlineVariant:   Color(0xFF2A2A4A),
-      shadow:           Colors.black,
-      scrim:            Colors.black,
-      inverseSurface:   textPrimary,
+      outline: border,
+      outlineVariant: Color(0xFF2A2A4A),
+      shadow: Colors.black,
+      scrim: Colors.black,
+      inverseSurface: textPrimary,
       onInverseSurface: background,
-      inversePrimary:   Color(0xFF7A6000),
+      inversePrimary: Color(0xFF7A6000),
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: background,
+      // Transparent so the global [GlassBackground] (gradient + blobs) shows
+      // through every screen. The backdrop is painted once at the app root.
+      scaffoldBackgroundColor: Colors.transparent,
 
-      // AppBar
+      // AppBar — translucent glass floating over the backdrop. Screens that
+      // adopt [GlassAppBar] additionally get a real frosted blur behind it.
       appBarTheme: const AppBarTheme(
-        backgroundColor: surface,
+        backgroundColor: glassRowFill,
         foregroundColor: textPrimary,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         surfaceTintColor: Colors.transparent,
         titleTextStyle: TextStyle(
@@ -90,7 +125,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: border),
@@ -149,9 +187,7 @@ class AppTheme {
 
       // Text buttons
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: gold,
-        ),
+        style: TextButton.styleFrom(foregroundColor: gold),
       ),
 
       // FAB — rounded square, gold
@@ -164,9 +200,10 @@ class AppTheme {
         ),
       ),
 
-      // NavigationBar
+      // NavigationBar — transparent; the bar is wrapped in a frosted glass
+      // container at the app root (see AppShell) so the backdrop blurs behind it.
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: navBar,
+        backgroundColor: Colors.transparent,
         indicatorColor: goldDark,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -195,9 +232,7 @@ class AppTheme {
         side: const BorderSide(color: border),
         labelStyle: const TextStyle(color: textPrimary, fontSize: 13),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
 
       // Dialogs
@@ -262,21 +297,24 @@ class AppTheme {
 
       // Text theme
       textTheme: const TextTheme(
-        displayLarge:  TextStyle(color: textPrimary),
+        displayLarge: TextStyle(color: textPrimary),
         displayMedium: TextStyle(color: textPrimary),
-        displaySmall:  TextStyle(color: textPrimary),
+        displaySmall: TextStyle(color: textPrimary),
         headlineLarge: TextStyle(color: textPrimary),
-        headlineMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+        headlineMedium: TextStyle(
+          color: textPrimary,
+          fontWeight: FontWeight.bold,
+        ),
         headlineSmall: TextStyle(color: textPrimary),
-        titleLarge:    TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-        titleMedium:   TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
-        titleSmall:    TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
-        bodyLarge:     TextStyle(color: textPrimary),
-        bodyMedium:    TextStyle(color: textPrimary),
-        bodySmall:     TextStyle(color: textMuted),
-        labelLarge:    TextStyle(color: textPrimary),
-        labelMedium:   TextStyle(color: textMuted),
-        labelSmall:    TextStyle(color: textMuted),
+        titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+        titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
+        titleSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
+        bodyLarge: TextStyle(color: textPrimary),
+        bodyMedium: TextStyle(color: textPrimary),
+        bodySmall: TextStyle(color: textMuted),
+        labelLarge: TextStyle(color: textPrimary),
+        labelMedium: TextStyle(color: textMuted),
+        labelSmall: TextStyle(color: textMuted),
       ),
 
       // Icon theme
@@ -284,9 +322,7 @@ class AppTheme {
       primaryIconTheme: const IconThemeData(color: gold),
 
       // Progress indicators
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: gold,
-      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: gold),
     );
   }
 }
