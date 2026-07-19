@@ -240,6 +240,7 @@ class DatabaseHelper {
   Future<List<model.Transaction>> getTransactions({
     String? category,
     List<String>? categories,
+    String? account,
     DateTime? from,
     DateTime? to,
     int? limit,
@@ -257,6 +258,10 @@ class DatabaseHelper {
     } else if (category != null) {
       whereClauses.add('category = ?');
       whereArgs.add(category);
+    }
+    if (account != null) {
+      whereClauses.add('payment_method = ?');
+      whereArgs.add(account);
     }
     if (from != null) {
       whereClauses.add('date >= ?');
@@ -284,6 +289,7 @@ class DatabaseHelper {
   Future<int> getTransactionCount({
     String? category,
     List<String>? categories,
+    String? account,
     DateTime? from,
     DateTime? to,
   }) async {
@@ -299,6 +305,10 @@ class DatabaseHelper {
     } else if (category != null) {
       whereClauses.add('category = ?');
       whereArgs.add(category);
+    }
+    if (account != null) {
+      whereClauses.add('payment_method = ?');
+      whereArgs.add(account);
     }
     if (from != null) {
       whereClauses.add('date >= ?');
@@ -355,6 +365,7 @@ class DatabaseHelper {
     DateTime? month,
     String? category,
     List<String>? categories,
+    String? account,
   }) async {
     final db = await database;
     final now = month ?? DateTime.now();
@@ -374,6 +385,10 @@ class DatabaseHelper {
     } else if (category != null) {
       whereParts.add('category = ?');
       args.add(category);
+    }
+    if (account != null) {
+      whereParts.add('payment_method = ?');
+      args.add(account);
     }
 
     final result = await db.rawQuery(

@@ -9,6 +9,7 @@ import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
 import 'package:receipto/screens/wallets_screen.dart';
+import 'package:receipto/widgets/account_filter_sheet.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/glass.dart';
@@ -92,18 +93,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPreviousMonth: () => provider.navigateMonth(-1),
                 onNextMonth: () => provider.navigateMonth(1),
                 selectedCategory: provider.selectedCategory,
+                selectedAccount: provider.selectedAccount,
               ),
 
               // Cash-flow strip (only in the unfiltered month view)
-              if (provider.selectedCategory == null)
+              if (!provider.hasFilter)
                 _CashFlowStrip(
                   income: provider.monthlyIncome,
                   expense: provider.monthlyTotal,
                   net: provider.netSavings,
                 ),
 
-              // Category filter control
-              _CategoryFilterBar(selectedCategory: provider.selectedCategory),
+              // Category + account filter controls (independent, AND-combined)
+              _HomeFilters(
+                selectedCategory: provider.selectedCategory,
+                selectedAccount: provider.selectedAccount,
+              ),
 
               // Transaction list or empty state
               Expanded(
@@ -323,12 +328,16 @@ class _CashFlowStrip extends StatelessWidget {
 /// selected category's icon + name. Tapping opens the shared [CategorySheet],
 /// configured for category-level filtering: no search, no subcategory
 /// drill-down, and an "All Categories" row to clear.
-class _CategoryFilterBar extends StatelessWidget {
+class _HomeFilters extends StatelessWidget {
   final String? selectedCategory;
+  final String? selectedAccount;
 
-  const _CategoryFilterBar({required this.selectedCategory});
+  const _HomeFilters({
+    required this.selectedCategory,
+    required this.selectedAccount,
+  });
 
-  Future<void> _openFilterSheet(BuildContext context) async {
+  Future<void> _openCategorySheet(BuildContext context) async {
     final catProvider = context.read<CategoryProvider>();
     final txProvider = context.read<TransactionProvider>();
     final result = await showModalBottomSheet<CategoryPick>(
@@ -357,62 +366,122 @@ class _CategoryFilterBar extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: ListGlassRow(
-        // Same glass family as the transaction rows below; the InputDecorator
-        // fill would be opaque, so this reads as one surface with the list.
-        onTap: () => _openFilterSheet(context),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            const Icon(Icons.filter_list, size: 18, color: AppTheme.onGlass),
-            const SizedBox(width: 10),
-            const Text(
-              'Filter',
-              style: TextStyle(color: AppTheme.onGlass, fontSize: 13),
-            ),
-            const Spacer(),
-            _trailing(context),
-          ],
-        ),
+  Future<void> _openAccountSheet(BuildContext context) async {
+    final accProvider = context.read<AccountProvider>();
+    final txProvider = context.read<TransactionProvider>();
+    final result = await showModalBottomSheet<AccountPick>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => AccountFilterSheet(
+        accounts: accProvider.accounts,
+        selected: selectedAccount,
       ),
     );
+    if (result is AccountPickValue) {
+      txProvider.filterByAccount(result.value);
+    } else if (result is AccountPickAll) {
+      txProvider.filterByAccount(null);
+    }
   }
 
-  /// Right-aligned trailing content: a chevron when no filter is active, or the
-  /// selected category's icon + name once a filter is applied.
-  Widget _trailing(BuildContext context) {
-    if (selectedCategory == null) {
-      return const Icon(
-        Icons.chevron_right,
-        size: 18,
-        color: AppTheme.onGlassFaint,
-      );
-    }
+  /// Active leading icon for the category button (its swatch icon), or null.
+  Widget? _categoryLeading(BuildContext context) {
+    if (selectedCategory == null) return null;
     final option = CategoryIcons.resolve(
       selectedCategory!,
       context.read<CategoryProvider>().byName(selectedCategory!)?.iconKey,
     );
-    return Flexible(
+    return Icon(option.icon, size: 18, color: option.color);
+  }
+
+  /// Active leading icon for the account button (its type icon), or null.
+  Widget? _accountLeading(BuildContext context) {
+    if (selectedAccount == null) return null;
+    final matches = context
+        .read<AccountProvider>()
+        .accounts
+        .where((a) => a.name == selectedAccount);
+    final type = matches.isEmpty ? 'other' : matches.first.type;
+    return Icon(
+      AppConstants.accountTypeIcons[type] ?? Icons.wallet,
+      size: 18,
+      color: AppTheme.gold,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(option.icon, size: 20, color: option.color),
-          const SizedBox(width: 6),
-          Flexible(
+          Expanded(
+            child: _FilterButton(
+              idleIcon: Icons.filter_list,
+              activeLeading: _categoryLeading(context),
+              activeLabel: selectedCategory,
+              onTap: () => _openCategorySheet(context),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _FilterButton(
+              idleIcon: Icons.account_balance_wallet_outlined,
+              activeLeading: _accountLeading(context),
+              activeLabel: selectedAccount,
+              onTap: () => _openAccountSheet(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One half-width filter button. Shows a filter icon + "Filter" when inactive,
+/// or the selected item's icon + name (ellipsised) when a filter is applied.
+class _FilterButton extends StatelessWidget {
+  final IconData idleIcon;
+  final Widget? activeLeading;
+  final String? activeLabel;
+  final VoidCallback onTap;
+
+  const _FilterButton({
+    required this.idleIcon,
+    required this.onTap,
+    this.activeLeading,
+    this.activeLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = activeLabel != null;
+    return ListGlassRow(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      child: Row(
+        children: [
+          active
+              ? activeLeading!
+              : Icon(idleIcon, size: 18, color: AppTheme.onGlass),
+          const SizedBox(width: 8),
+          Expanded(
             child: Text(
-              selectedCategory!,
+              activeLabel ?? 'Filter',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppTheme.gold,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+              style: TextStyle(
+                color: active ? AppTheme.gold : AppTheme.onGlass,
+                fontSize: 13,
+                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.chevron_right,
+            size: 18,
+            color: AppTheme.onGlassFaint,
           ),
         ],
       ),

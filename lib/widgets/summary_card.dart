@@ -14,6 +14,7 @@ class SummaryCard extends StatelessWidget {
   final VoidCallback onPreviousMonth;
   final VoidCallback onNextMonth;
   final String? selectedCategory;
+  final String? selectedAccount;
 
   const SummaryCard({
     super.key,
@@ -24,6 +25,7 @@ class SummaryCard extends StatelessWidget {
     required this.onPreviousMonth,
     required this.onNextMonth,
     this.selectedCategory,
+    this.selectedAccount,
   });
 
   @override
@@ -33,6 +35,20 @@ class SummaryCard extends StatelessWidget {
       symbol: AppConstants.currencySymbol,
     );
     final monthLabel = DateFormat('MMMM yyyy').format(selectedMonth);
+
+    // Reflect whichever filters are active (category and/or account) in the
+    // heading, e.g. "FOOD · CASH SPENDING". Empty → the plain month total.
+    final activeFilters = [
+      if (selectedCategory != null) selectedCategory!,
+      if (selectedAccount != null) selectedAccount!,
+    ];
+    final spendingLabel = activeFilters.isEmpty
+        ? 'TOTAL SPENDING'
+        : '${activeFilters.join(' · ').toUpperCase()} SPENDING';
+    final plural = transactionCount == 1 ? '' : 's';
+    final countLabel = activeFilters.isEmpty
+        ? '$transactionCount transaction$plural this month'
+        : '$transactionCount matching transaction$plural';
 
     return HeroGlassCard(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -94,9 +110,7 @@ class SummaryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  selectedCategory != null
-                      ? '${selectedCategory!.toUpperCase()} SPENDING'
-                      : 'TOTAL SPENDING',
+                  spendingLabel,
                   style: TextStyle(
                     color: AppTheme.onGlassMuted,
                     fontSize: 11,
@@ -116,9 +130,7 @@ class SummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  selectedCategory != null
-                      ? '$transactionCount transaction${transactionCount == 1 ? '' : 's'} in $selectedCategory'
-                      : '$transactionCount transaction${transactionCount == 1 ? '' : 's'} this month',
+                  countLabel,
                   style: TextStyle(color: AppTheme.onGlassMuted, fontSize: 12),
                 ),
               ],

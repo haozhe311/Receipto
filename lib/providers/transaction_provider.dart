@@ -22,6 +22,10 @@ class TransactionProvider extends ChangeNotifier {
   /// subcategories, so e.g. "Transport" includes Fuel + Maintenance. Null when
   /// no filter is applied. [_selectedCategory] remains the display label.
   List<String>? _selectedCategoryValues;
+
+  /// The account (payment method) filter, or null for all accounts. Applied
+  /// together with the category filter using AND logic.
+  String? _selectedAccount;
   double _monthlyTotal = 0;
   double _monthlyIncome = 0;
   double? _filteredTotal;
@@ -35,13 +39,16 @@ class TransactionProvider extends ChangeNotifier {
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMore => _hasMore;
   String? get selectedCategory => _selectedCategory;
+  String? get selectedAccount => _selectedAccount;
+  /// True when a category and/or account filter is active.
+  bool get hasFilter => _selectedCategory != null || _selectedAccount != null;
   double get monthlyTotal => _monthlyTotal;
   /// Total income for the selected month.
   double get monthlyIncome => _monthlyIncome;
   /// Net cash flow for the selected month (income − expenses).
   double get netSavings => _monthlyIncome - _monthlyTotal;
-  /// Total for the active category filter, or the full month total when no filter.
-  double get displayTotal => _selectedCategory != null ? (_filteredTotal ?? 0) : _monthlyTotal;
+  /// Total for the active filter(s), or the full month total when unfiltered.
+  double get displayTotal => hasFilter ? (_filteredTotal ?? 0) : _monthlyTotal;
   int get transactionCount => _monthlyCount;
 
   /// The month currently displayed on the home screen.
@@ -78,8 +85,10 @@ class TransactionProvider extends ChangeNotifier {
     final now = _firstOfMonth(DateTime.now());
     if (candidate.isAfter(now)) return; // never go into the future
     _selectedMonth = candidate;
-    // Reset category filter when changing months for a clean view.
+    // Reset the filters when changing months for a clean view.
     _selectedCategory = null;
+    _selectedCategoryValues = null;
+    _selectedAccount = null;
     loadTransactions();
   }
 
@@ -100,6 +109,7 @@ class TransactionProvider extends ChangeNotifier {
       final futures = <Future>[
         db.getTransactions(
           categories: _selectedCategoryValues,
+          account: _selectedAccount,
           from: firstDay,
           to: lastDay,
           limit: _pageSize,
@@ -108,13 +118,17 @@ class TransactionProvider extends ChangeNotifier {
         db.getMonthlyTotal(month: _selectedMonth),
         db.getTransactionCount(
           categories: _selectedCategoryValues,
+          account: _selectedAccount,
           from: firstDay,
           to: lastDay,
         ),
         db.getMonthlyIncome(month: _selectedMonth),
-        if (_selectedCategory != null)
+        if (hasFilter)
           db.getMonthlyTotal(
-              month: _selectedMonth, categories: _selectedCategoryValues),
+            month: _selectedMonth,
+            categories: _selectedCategoryValues,
+            account: _selectedAccount,
+          ),
       ];
       final results = await Future.wait(futures);
 
@@ -122,7 +136,7 @@ class TransactionProvider extends ChangeNotifier {
       _monthlyTotal = results[1] as double;
       _monthlyCount = (results[2] as num).toInt();
       _monthlyIncome = results[3] as double;
-      _filteredTotal = _selectedCategory != null ? results[4] as double : null;
+      _filteredTotal = hasFilter ? results[4] as double : null;
       _loadedPages = 1;
       _hasMore = _transactions.length < _monthlyCount;
     } finally {
@@ -143,6 +157,7 @@ class TransactionProvider extends ChangeNotifier {
     try {
       final next = await DatabaseHelper.instance.getTransactions(
         categories: _selectedCategoryValues,
+        account: _selectedAccount,
         from: firstDay,
         to: lastDay,
         limit: _pageSize,
@@ -187,6 +202,14 @@ class TransactionProvider extends ChangeNotifier {
     _selectedCategory = category;
     _selectedCategoryValues =
         category == null ? null : (includeValues ?? [category]);
+    loadTransactions();
+  }
+
+  /// Sets the account (payment method) filter within the current month and
+  /// reloads. Pass null to show all accounts. Applied together with the
+  /// category filter using AND logic.
+  void filterByAccount(String? account) {
+    _selectedAccount = account;
     loadTransactions();
   }
 
