@@ -40,11 +40,22 @@ class ReceiptoApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: AppConstants.appName,
-        theme: AppTheme.darkTheme,
+        // Every route paints its own opaque glass backdrop (via the page
+        // transitions builder), so pushes fully cover the previous page instead
+        // of letting it bleed through a transparent scaffold during the slide.
+        theme: AppTheme.darkTheme.copyWith(
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: GlassPageTransitionsBuilder(),
+              TargetPlatform.iOS: GlassPageTransitionsBuilder(),
+              TargetPlatform.fuchsia: GlassPageTransitionsBuilder(),
+              TargetPlatform.linux: GlassPageTransitionsBuilder(),
+              TargetPlatform.macOS: GlassPageTransitionsBuilder(),
+              TargetPlatform.windows: GlassPageTransitionsBuilder(),
+            },
+          ),
+        ),
         debugShowCheckedModeBanner: false,
-        // Paint the shared glass backdrop once behind every route.
-        builder: (context, child) =>
-            GlassBackground(child: child ?? const SizedBox.shrink()),
         home: const AppShell(),
       ),
     );
@@ -135,7 +146,7 @@ class _AppShellState extends State<AppShell> {
       // is cheap (unlike per-row list blur, which we avoid).
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             decoration: const BoxDecoration(
               color: AppTheme.glassRowFill,

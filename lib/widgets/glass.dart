@@ -183,24 +183,28 @@ class HeroGlassCard extends StatelessWidget {
       );
     }
 
-    return Container(
-      margin: margin,
-      // Shadow lives on the outer box so the ClipRRect below doesn't clip it.
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: const [
-          BoxShadow(
-            color: AppTheme.glassShadow,
-            blurRadius: 32,
-            offset: Offset(0, 8),
+    // RepaintBoundary isolates the blur so it isn't recomputed when unrelated
+    // siblings repaint; the lower sigma keeps the frost while cutting GPU cost.
+    return RepaintBoundary(
+      child: Container(
+        margin: margin,
+        // Shadow lives on the outer box so the ClipRRect below doesn't clip it.
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: const [
+            BoxShadow(
+              color: AppTheme.glassShadow,
+              blurRadius: 32,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: content,
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: content,
         ),
       ),
     );
@@ -268,7 +272,7 @@ class GlassSheetBackground extends StatelessWidget {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: DecoratedBox(
           decoration: const BoxDecoration(
             color: AppTheme.glassSheetFill,
@@ -279,6 +283,39 @@ class GlassSheetBackground extends StatelessWidget {
           child: child,
         ),
       ),
+    );
+  }
+}
+
+// ── Opaque page transitions ───────────────────────────────────────────────────
+
+/// Gives every pushed route its own opaque [GlassBackground] before applying the
+/// normal platform page transition.
+///
+/// Screens use transparent scaffolds so the shared backdrop shows through; the
+/// downside is that, without this, a route transition composites two transparent
+/// pages and the outgoing page bleeds through the incoming one. Wrapping each
+/// page in an opaque copy of the (identical) backdrop makes the incoming page
+/// fully cover the outgoing one — so only the content cross-fades, over a stable
+/// gradient. Applied once via `ThemeData.pageTransitionsTheme`, so no screen
+/// needs to wrap itself.
+class GlassPageTransitionsBuilder extends PageTransitionsBuilder {
+  const GlassPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return const ZoomPageTransitionsBuilder().buildTransitions(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      GlassBackground(child: child),
     );
   }
 }
