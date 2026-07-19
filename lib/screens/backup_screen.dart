@@ -1,3 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
@@ -23,9 +28,15 @@ class BackupScreen extends StatefulWidget {
 class _BackupScreenState extends State<BackupScreen> {
   bool _isBackingUp = false;
   bool _isRestoring = false;
+  bool _isExporting = false;
+  bool _isImporting = false;
   DateTime? _lastBackupDate;
   DateTime? _lastAutoBackupDate;
   bool _autoBackupEnabled = true;
+
+  /// True while any backup/restore/import/export operation is in flight, so all
+  /// action buttons are disabled together.
+  bool get _busy => _isBackingUp || _isRestoring || _isExporting || _isImporting;
 
   @override
   void initState() {
@@ -110,7 +121,7 @@ class _BackupScreenState extends State<BackupScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isBackingUp || _isRestoring ? null : _performBackup,
+              onPressed: _busy ? null : _performBackup,
               icon: _isBackingUp
                   ? const SizedBox(
                       width: 18,
@@ -136,7 +147,7 @@ class _BackupScreenState extends State<BackupScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed:
-                  _isBackingUp || _isRestoring ? null : _showRestoreDialog,
+                  _busy ? null : _showRestoreDialog,
               icon: _isRestoring
                   ? const SizedBox(
                       width: 18,
@@ -151,6 +162,73 @@ class _BackupScreenState extends State<BackupScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Local file (works offline; no Google account needed) ──────────
+          Row(
+            children: [
+              const Expanded(child: Divider(color: AppTheme.glassBorderSoft)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'OR USE A FILE ON THIS DEVICE',
+                  style: TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const Expanded(child: Divider(color: AppTheme.glassBorderSoft)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Export to file
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _exportToFile,
+              icon: _isExporting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_alt),
+              label: Text(_isExporting ? 'Exporting...' : 'Export to file'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Import from file
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _importFromFile,
+              icon: _isImporting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.file_open),
+              label: Text(_isImporting ? 'Importing...' : 'Import from file'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Import replaces all current data with the file\'s contents. '
+            'Use this to load a backup that isn\'t in your Drive.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
           ),
           const SizedBox(height: 24),
 
@@ -243,15 +321,7 @@ class _BackupScreenState extends State<BackupScreen> {
       await BackupService.restore(selected.id!);
       if (!mounted) return;
 
-      // Refresh every provider whose data the restore may have replaced.
-      await Future.wait([
-        context.read<TransactionProvider>().loadTransactions(),
-        context.read<CategoryProvider>().loadCategories(),
-        context.read<BudgetProvider>().loadBudgets(),
-        context.read<GoalProvider>().loadGoals(),
-        context.read<RecurringProvider>().loadRecurring(),
-        context.read<AccountProvider>().loadAccounts(),
-      ]);
+      await _refreshAllProviders();
       if (!mounted) return;
 
       _showSnackBar('Restore successful!', Colors.green);
@@ -259,6 +329,116 @@ class _BackupScreenState extends State<BackupScreen> {
       if (mounted) _showSnackBar('Restore failed: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isRestoring = false);
+    }
+  }
+
+  /// Reloads every provider whose data a restore/import may have replaced.
+  Future<void> _refreshAllProviders() async {
+    if (!mounted) return;
+    await Future.wait([
+      context.read<TransactionProvider>().loadTransactions(),
+      context.read<CategoryProvider>().loadCategories(),
+      context.read<BudgetProvider>().loadBudgets(),
+      context.read<GoalProvider>().loadGoals(),
+      context.read<RecurringProvider>().loadRecurring(),
+      context.read<AccountProvider>().loadAccounts(),
+    ]);
+  }
+
+  /// Exports all data to a JSON file the user saves anywhere on the device
+  /// (Downloads, etc.) via the system "Save as" dialog. Same format as the
+  /// Google Drive backup, so it can be re-imported here.
+  Future<void> _exportToFile() async {
+    setState(() => _isExporting = true);
+    try {
+      final jsonString = await DatabaseHelper.instance.getAllDataAsJson();
+      final bytes = Uint8List.fromList(utf8.encode(jsonString));
+      final fileName =
+          'receipto_backup_${DateFormat('yyyy-MM-dd_HHmmss').format(DateTime.now())}.json';
+
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Receipto backup',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        bytes: bytes,
+      );
+
+      if (!mounted) return;
+      _showSnackBar(
+        savedPath == null ? 'Export cancelled' : 'Backup saved to file',
+        savedPath == null ? Colors.orange : Colors.green,
+      );
+    } catch (e) {
+      if (mounted) _showSnackBar('Export failed: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  /// Lets the user pick a Receipto JSON backup from device storage and restores
+  /// it, replacing all current data. Works offline with no Google account.
+  Future<void> _importFromFile() async {
+    // Pick before touching state, so cancelling is a clean no-op.
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty || !mounted) return;
+
+    final picked = result.files.single;
+    String jsonString;
+    try {
+      if (picked.bytes != null) {
+        jsonString = utf8.decode(picked.bytes!);
+      } else if (picked.path != null) {
+        jsonString = await File(picked.path!).readAsString();
+      } else {
+        _showSnackBar('Could not read the selected file', Colors.red);
+        return;
+      }
+    } catch (e) {
+      if (mounted) _showSnackBar('Could not read the file: $e', Colors.red);
+      return;
+    }
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Import & Replace Data?'),
+        content: Text(
+          'This will REPLACE your current data (transactions, categories, '
+          'budgets, goals, recurring transactions, and accounts) with the '
+          'contents of "${picked.name}".\n\nThis cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isImporting = true);
+    try {
+      await DatabaseHelper.instance.importAllDataFromJson(jsonString);
+      if (!mounted) return;
+      await _refreshAllProviders();
+      if (!mounted) return;
+      _showSnackBar('Import successful!', Colors.green);
+    } catch (e) {
+      if (mounted) _showSnackBar('Import failed: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
     }
   }
 

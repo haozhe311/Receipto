@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/budget_provider.dart';
+import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/screens/budgets_screen.dart';
 import 'package:receipto/services/database_helper.dart';
 import 'package:receipto/services/insight_service.dart';
@@ -344,7 +345,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       ..sort((a, b) => a.key.compareTo(b.key));
     final over = [
       for (final e in entries)
-        if ((_categorySpending[e.key] ?? 0) > e.value) e.key,
+        if (_spentForBudget(e.key) > e.value) e.key,
     ];
 
     return Column(
@@ -357,12 +358,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           BudgetProgressRow(
             category: e.key,
             limit: e.value,
-            spent: _categorySpending[e.key] ?? 0,
+            spent: _spentForBudget(e.key),
           ),
           const SizedBox(height: 10),
         ],
       ],
     );
+  }
+
+  /// Spending for a budgeted (parent) category in the selected month — its own
+  /// directly-tagged spend plus all its subcategories', since transactions are
+  /// usually tagged with a subcategory (Food's budget must include Dining etc.).
+  double _spentForBudget(String category) {
+    var total = _categorySpending[category] ?? 0;
+    final cat = context.read<CategoryProvider>().byName(category);
+    if (cat != null) {
+      for (final sub in cat.subcategories) {
+        total += _categorySpending[sub] ?? 0;
+      }
+    }
+    return total;
   }
 
   Widget _budgetTitle() {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:receipto/services/database_helper.dart';
 
@@ -41,7 +43,7 @@ class BudgetProvider extends ChangeNotifier {
     final db = DatabaseHelper.instance;
     final results = await Future.wait([
       db.getBudgets(),
-      db.getCategorySpendingForMonth(DateTime.now()),
+      _computeSpent(),
     ]);
     _limits = results[0];
     _spent = results[1];
@@ -52,9 +54,43 @@ class BudgetProvider extends ChangeNotifier {
   /// Refreshes only the current-month spending figures (e.g. after a new
   /// transaction is added). Limits are left untouched.
   Future<void> refreshSpending() async {
-    _spent = await DatabaseHelper.instance
-        .getCategorySpendingForMonth(DateTime.now());
+    _spent = await _computeSpent();
     notifyListeners();
+  }
+
+  /// Current-month spending rolled up so a budget on a parent category (e.g.
+  /// "Food") includes spending tagged with its subcategories (Dining, Coffee…).
+  /// Raw spending is keyed by the stored category, which is usually a
+  /// subcategory, so a plain parent lookup would otherwise read zero.
+  Future<Map<String, double>> _computeSpent() async {
+    final db = DatabaseHelper.instance;
+    final raw = await db.getCategorySpendingForMonth(DateTime.now());
+    final categoriesJson = await db.getSetting('categories');
+    return _rollUpToParents(raw, categoriesJson);
+  }
+
+  /// Adds each category's subcategory spending into the parent's total. Keeps
+  /// the original per-subcategory entries too (so a budget set directly on a
+  /// subcategory still resolves).
+  static Map<String, double> _rollUpToParents(
+    Map<String, double> raw,
+    String? categoriesJson,
+  ) {
+    if (categoriesJson == null) return raw;
+    final out = Map<String, double>.from(raw);
+    final list = jsonDecode(categoriesJson) as List<dynamic>;
+    for (final c in list) {
+      final map = c as Map<String, dynamic>;
+      final name = map['name'] as String;
+      final subs =
+          (map['subcategories'] as List<dynamic>?)?.cast<String>() ?? const [];
+      var total = raw[name] ?? 0;
+      for (final s in subs) {
+        total += raw[s] ?? 0;
+      }
+      out[name] = total;
+    }
+    return out;
   }
 
   Future<void> setBudget(String category, double monthlyLimit) async {
