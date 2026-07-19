@@ -46,9 +46,10 @@ class AppTheme {
   static const Color onGlassMuted = Color(0x99FFFFFF); // ~0.60 white — labels
   static const Color onGlassFaint = Color(0x66FFFFFF); // ~0.40 white — hints
 
-  /// Frosted fill for modal bottom sheets — translucent dark over a real blur
-  /// of the dimmed page, kept legible for large content sheets.
-  static const Color glassSheetFill = Color(0xB8252540); // ~0.72 surface
+  /// Fill for modal bottom sheets — a mostly-opaque dark panel with a faint
+  /// translucency (no live blur, so the sheet stays smooth over blur-heavy pages
+  /// like Home). Over the modal scrim the page barely shows through.
+  static const Color glassSheetFill = Color(0xD9252540); // ~0.85 surface
   /// Drop shadow beneath hero glass cards.
   static const Color glassShadow = Color(0x59140A3C); // rgba(20,10,60,0.35)
 

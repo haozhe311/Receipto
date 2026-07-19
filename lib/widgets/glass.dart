@@ -258,10 +258,12 @@ class ListGlassRow extends StatelessWidget {
 
 // ── Frosted sheet (real blur) ─────────────────────────────────────────────────
 
-/// Frosted-glass background for a modal bottom sheet: a real blur of the dimmed
-/// page behind it, a translucent dark fill, rounded top corners and a top
-/// hairline. Wrap the sheet's content in this (the bottom-sheet theme is
-/// transparent so this is what the user actually sees).
+/// Background for a modal bottom sheet: a mostly-opaque dark glass panel with
+/// rounded top corners and a top hairline. Deliberately uses NO live
+/// [BackdropFilter] — a sheet blur would have to re-blur whatever is behind it
+/// every frame of the slide, and over a blur-heavy page (Home's frosted cards +
+/// nav) that nests backdrop blurs and tanks the frame rate. A static fill keeps
+/// the sheet smooth regardless of what page it opens over.
 class GlassSheetBackground extends StatelessWidget {
   final Widget child;
 
@@ -271,17 +273,14 @@ class GlassSheetBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppTheme.glassSheetFill,
-            border: Border(
-              top: BorderSide(color: AppTheme.glassBorderSoft, width: 1),
-            ),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppTheme.glassSheetFill,
+          border: Border(
+            top: BorderSide(color: AppTheme.glassBorderSoft, width: 1),
           ),
-          child: child,
         ),
+        child: child,
       ),
     );
   }
