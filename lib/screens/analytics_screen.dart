@@ -140,7 +140,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             onPressed: _isCurrentMonth ? null : () => _changeMonth(1),
             icon: const Icon(Icons.chevron_right),
             color: AppTheme.gold,
-            disabledColor: const Color(0xFF555577),
+            disabledColor: AppTheme.onGlassFaint,
           ),
         ],
       ),
@@ -155,7 +155,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       children: [
         _statTile('Income', _monthIncome, _income),
         const SizedBox(width: 10),
-        _statTile('Expenses', _monthExpense, AppTheme.gold),
+        _statTile('Expenses', _monthExpense, AppTheme.textPrimary),
         const SizedBox(width: 10),
         _statTile(
           'Net',
@@ -331,7 +331,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                   const Icon(Icons.chevron_right,
-                      size: 18, color: Color(0xFF555577)),
+                      size: 18, color: AppTheme.onGlassFaint),
                 ],
               ),
             ),

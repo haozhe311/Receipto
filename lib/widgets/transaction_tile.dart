@@ -34,12 +34,11 @@ class TransactionTile extends StatelessWidget {
         : (AppConstants.categoryIcons[transaction.category] ??
               Icons.more_horiz);
     final color = isIncome
-        ? const Color(0xFF4CAF50)
-        : (AppConstants.categoryColors[transaction.category] ?? Colors.grey);
-    final tint = isIncome
-        ? const Color(0xFF16281A)
-        : (AppConstants.categoryDarkTints[transaction.category] ??
-              AppTheme.surface);
+        ? AppTheme.positive
+        : (AppConstants.categoryColors[transaction.category] ??
+              AppTheme.textMuted);
+    // Light tint of the category colour behind the icon (ParkingLah-style).
+    final tint = color.withValues(alpha: 0.14);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -50,10 +49,10 @@ class TransactionTile extends StatelessWidget {
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF3D1010),
-            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.delete, color: Color(0xFFFF6B6B)),
+          child: const Icon(Icons.delete, color: AppTheme.danger),
         ),
         confirmDismiss: (_) => _confirmDelete(context),
         onDismissed: (_) => onDelete(),
@@ -69,7 +68,6 @@ class TransactionTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: tint,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
                 ),
                 child: Icon(icon, color: color, size: 22),
               ),
@@ -116,7 +114,7 @@ class TransactionTile extends StatelessWidget {
                     Text(
                       transaction.paymentMethod,
                       style: const TextStyle(
-                        color: Color(0xFF555577),
+                        color: AppTheme.onGlassFaint,
                         fontSize: 10,
                       ),
                     ),
@@ -130,9 +128,9 @@ class TransactionTile extends StatelessWidget {
                 '${currencyFormat.format(transaction.amount)}',
                 style: TextStyle(
                   color: transaction.isIncome
-                      ? const Color(0xFF4CAF50)
-                      : AppTheme.gold,
-                  fontWeight: FontWeight.w600,
+                      ? AppTheme.positive
+                      : AppTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
                   fontSize: 15,
                 ),
               ),

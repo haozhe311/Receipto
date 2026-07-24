@@ -197,7 +197,7 @@ class _ChatBubble extends StatelessWidget {
     final isUser = message.isUser;
 
     final bgColor = message.isError
-        ? const Color(0xFF3D1010)
+        ? const Color(0xFFFEE2E2)
         : isUser
             ? AppTheme.goldDark
             : AppTheme.glassRowFill;
@@ -207,7 +207,7 @@ class _ChatBubble extends StatelessWidget {
             ? AppTheme.gold
             : AppTheme.textPrimary;
     final borderColor = message.isError
-        ? const Color(0xFF6B2020)
+        ? const Color(0xFFFECACA)
         : isUser
             ? AppTheme.gold
             : AppTheme.border;

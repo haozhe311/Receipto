@@ -23,19 +23,19 @@ class BudgetOverBanner extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF3D1010),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF6B2020)),
+        color: const Color(0xFFFEE2E2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
       ),
       child: Row(
         children: [
           const Icon(Icons.warning_amber_rounded,
-              color: Color(0xFFFF9999), size: 20),
+              color: AppTheme.danger, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Over budget in: ${overCategories.join(', ')}',
-              style: const TextStyle(color: Color(0xFFFF9999), fontSize: 13),
+              style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13),
             ),
           ),
         ],
@@ -78,9 +78,9 @@ class BudgetProgressRow extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppTheme.glassRowFill,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: over ? const Color(0xFF6B2020) : AppTheme.border,
+            color: over ? const Color(0xFFFECACA) : AppTheme.border,
           ),
         ),
         child: Column(
@@ -109,9 +109,7 @@ class BudgetProgressRow extends StatelessWidget {
                   Text(
                     '${_fmt.format(spent)} / ${_fmt.format(limit)}',
                     style: TextStyle(
-                      color: over
-                          ? const Color(0xFFFF9999)
-                          : AppTheme.textPrimary,
+                      color: over ? AppTheme.danger : AppTheme.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -127,7 +125,7 @@ class BudgetProgressRow extends StatelessWidget {
                   minHeight: 7,
                   backgroundColor: AppTheme.border,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    over ? const Color(0xFFFF6B6B) : color,
+                    over ? AppTheme.danger : color,
                   ),
                 ),
               ),
@@ -137,7 +135,7 @@ class BudgetProgressRow extends StatelessWidget {
                     ? 'Over by ${_fmt.format(spent - limit!)}'
                     : '${_fmt.format(limit! - spent)} remaining',
                 style: TextStyle(
-                  color: over ? const Color(0xFFFF9999) : AppTheme.textMuted,
+                  color: over ? AppTheme.danger : AppTheme.textMuted,
                   fontSize: 11,
                 ),
               ),

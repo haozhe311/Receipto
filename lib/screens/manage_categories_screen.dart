@@ -140,7 +140,7 @@ class _CategoryRow extends StatelessWidget {
               const Icon(
                 Icons.chevron_right,
                 size: 20,
-                color: Color(0xFF555577),
+                color: AppTheme.onGlassFaint,
               ),
           ],
         ),

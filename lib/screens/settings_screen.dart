@@ -229,7 +229,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const Icon(
                         Icons.warning_amber,
                         size: 16,
-                        color: Color(0xFF555577),
+                        color: AppTheme.onGlassFaint,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -568,7 +568,7 @@ class _KeyRowState extends State<_KeyRow> {
               child: Icon(
                 _revealed ? Icons.visibility : Icons.visibility_off,
                 size: 18,
-                color: _revealed ? AppTheme.gold : const Color(0xFF555577),
+                color: _revealed ? AppTheme.gold : AppTheme.onGlassFaint,
               ),
             ),
             const SizedBox(width: 10),
@@ -627,7 +627,7 @@ class _KeyRowState extends State<_KeyRow> {
                   size: 18,
                   color: _copied
                       ? const Color(0xFF4CAF50)
-                      : const Color(0xFF555577),
+                      : AppTheme.onGlassFaint,
                 ),
               ),
             ),
@@ -737,7 +737,7 @@ class _NavTile extends StatelessWidget {
             const Icon(
               Icons.chevron_right,
               size: 20,
-              color: Color(0xFF555577),
+              color: AppTheme.onGlassFaint,
             ),
           ],
         ),

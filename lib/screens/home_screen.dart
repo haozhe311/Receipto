@@ -256,16 +256,15 @@ class _CashFlowStrip extends StatelessWidget {
       locale: AppConstants.currencyLocale,
       symbol: AppConstants.currencySymbol,
     );
-    const incomeGreen = Color(0xFF7CE0A8);
-    final netColor = net >= 0 ? incomeGreen : const Color(0xFFFF8A8A);
+    final netColor = net >= 0 ? AppTheme.positive : AppTheme.danger;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Row(
         children: [
-          _cell(context, 'Income', fmt.format(income), incomeGreen),
+          _cell(context, 'Income', fmt.format(income), AppTheme.positive),
           const SizedBox(width: 8),
-          _cell(context, 'Expenses', fmt.format(expense), AppTheme.gold),
+          _cell(context, 'Expenses', fmt.format(expense), AppTheme.textPrimary),
           const SizedBox(width: 8),
           _cell(
             context,

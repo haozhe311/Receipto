@@ -122,9 +122,9 @@ class SummaryCard extends StatelessWidget {
                 Text(
                   currencyFormat.format(monthlyTotal),
                   style: const TextStyle(
-                    color: AppTheme.gold,
+                    color: AppTheme.textPrimary,
                     fontSize: 32,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
                   ),
                 ),
