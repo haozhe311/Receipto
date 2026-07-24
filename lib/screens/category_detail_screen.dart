@@ -165,17 +165,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Icon (each swatch is a fixed icon + colour pairing).
-            // Built-in categories keep a fixed icon, so the grid is hidden
-            // for them — this prevents an accidental tap from changing it.
+            // Icon (each swatch is a fixed icon + colour pairing). Editable for
+            // every category except the protected "Others", which stays fixed.
             Text(
               'Icon',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 12),
-            if (CategoryProvider.isBuiltIn(_name))
+            if (_isProtected)
               Text(
-                'Built-in categories keep a fixed icon.',
+                '"${CategoryProvider.protectedName}" keeps a fixed icon.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
               )
             else
@@ -227,7 +226,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             ),
             child: Icon(option.icon, color: option.color, size: 44),
           ),
-          if (!CategoryProvider.isBuiltIn(_name))
+          if (!_isProtected)
             Positioned(
               right: 0,
               bottom: 4,

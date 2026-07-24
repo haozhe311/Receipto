@@ -83,8 +83,9 @@ class CategoryProvider extends ChangeNotifier {
 
   /// Normalises a category list:
   ///  - drops duplicate names (case-insensitive, keeping the first),
-  ///  - forces every built-in category to its canonical icon (so a corrupted
-  ///    or stale `iconKey` self-heals on load — the built-ins are pinned),
+  ///  - pins ONLY the protected "Others" category to its canonical icon (every
+  ///    other category — including the built-ins — keeps whatever icon the user
+  ///    has chosen, so built-in icons are user-customisable),
   ///  - guarantees the protected "Others" category is present.
   ///
   /// Returns the cleaned list and whether anything actually changed. Pure and
@@ -100,9 +101,9 @@ class CategoryProvider extends ChangeNotifier {
         changed = true; // duplicate row dropped
         continue;
       }
-      final canonical = CategoryIcons.builtInKeyFor(c.name);
-      if (canonical != null && c.iconKey != canonical) {
-        out.add(c.copyWith(iconKey: canonical)); // heal drifted built-in icon
+      // "Others" stays cosmetically fixed; keep every other icon as chosen.
+      if (c.name == protectedName && c.iconKey != 'others') {
+        out.add(c.copyWith(iconKey: 'others'));
         changed = true;
       } else {
         out.add(c);
@@ -116,7 +117,7 @@ class CategoryProvider extends ChangeNotifier {
     return (out, changed);
   }
 
-  /// True for the built-in categories, whose icons are fixed (pinned).
+  /// True for the built-in categories (matched by their default name).
   static bool isBuiltIn(String name) =>
       CategoryIcons.builtInKeyFor(name) != null;
 
@@ -144,11 +145,11 @@ class CategoryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Changes a category's icon swatch. Built-in categories are pinned to their
-  /// canonical icon and cannot be changed — this is the authoritative guard
-  /// that stops a stray tap (or any caller) from corrupting them.
+  /// Changes a category's icon swatch and persists it — reflected everywhere
+  /// the icon is resolved via [CategoryIcons.resolve]. Works for built-in and
+  /// user-created categories alike; only the protected "Others" is locked.
   Future<void> setIcon(String name, String iconKey) async {
-    if (isBuiltIn(name)) return;
+    if (name == protectedName) return;
     final idx = _categories.indexWhere((c) => c.name == name);
     if (idx == -1) return;
     _categories[idx] = _categories[idx].copyWith(iconKey: iconKey);
