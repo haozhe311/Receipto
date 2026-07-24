@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
@@ -141,47 +139,73 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       // IndexedStack preserves state across tab switches.
       body: IndexedStack(index: _currentIndex, children: _screens),
-      // Frosted-glass bottom bar: a real blur of the backdrop behind a
-      // translucent white fill. A single persistent instance, so the live blur
-      // is cheap (unlike per-row list blur, which we avoid).
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+      // Floating white pill nav (ParkingLah-style): active tab gets a rounded
+      // light-blue highlight with a blue icon + label.
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
           child: Container(
-            decoration: const BoxDecoration(
-              color: AppTheme.glassRowFill,
-              border: Border(
-                top: BorderSide(color: AppTheme.glassBorderSoft, width: 1),
-              ),
-            ),
-            child: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                setState(() => _currentIndex = index);
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart),
-                  label: 'Analytics',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.smart_toy_outlined),
-                  selectedIcon: Icon(Icons.smart_toy),
-                  label: 'Chat',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: 'Settings',
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppTheme.glassShadow,
+                  blurRadius: 20,
+                  offset: Offset(0, 6),
                 ),
               ],
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              children: [
+                _navItem(0, Icons.home_outlined, Icons.home, 'Home'),
+                _navItem(1, Icons.bar_chart_outlined, Icons.bar_chart,
+                    'Analytics'),
+                _navItem(2, Icons.smart_toy_outlined, Icons.smart_toy, 'Chat'),
+                _navItem(3, Icons.settings_outlined, Icons.settings,
+                    'Settings'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(int index, IconData icon, IconData activeIcon, String label) {
+    final selected = _currentIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _currentIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.goldDark : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? activeIcon : icon,
+                size: 22,
+                color: selected ? AppTheme.gold : AppTheme.textMuted,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? AppTheme.gold : AppTheme.textMuted,
+                ),
+              ),
+            ],
           ),
         ),
       ),

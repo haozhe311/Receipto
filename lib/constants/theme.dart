@@ -1,100 +1,110 @@
 import 'package:flutter/material.dart';
 
-/// Dark premium theme for Receipto.
+/// Light, clean theme for Receipto (ParkingLah-style).
 ///
 /// Palette:
-///   Background : #1A1A2E  (deep navy)
-///   Surface    : #252540  (elevated panels / cards)
-///   Gold accent: #F0C440  (primary interactive colour)
-///   NavBar bg  : #141428  (darker than background)
+///   Page bg   : #EBEEF3  (soft light grey-blue)
+///   Card      : #FFFFFF  (white, soft shadow)
+///   Primary   : #22A7F0  (bright blue — buttons, links, selected)
+///   Accent    : #FFB81C  (warm yellow — brand / steppers)
+///   Positive  : #22C55E  (green — available / money in)
+///   Danger    : #EF4444  (red)
+///   Heading   : #13233B  (near-black navy)
+///   Muted      : #64748B  (slate grey)
+///
+/// Note: the historical accent constant is still named [gold] (used across many
+/// screens) but now holds the primary BLUE, so those usages recolour for free.
 class AppTheme {
   AppTheme._();
 
-  static const Color background = Color(0xFF1A1A2E);
-  static const Color surface = Color(0xFF252540);
-  static const Color surfaceHigh = Color(0xFF2D2D50);
-  static const Color navBar = Color(0xFF141428);
-  static const Color gold = Color(0xFFF0C440);
-  static const Color goldDark = Color(0xFF2D2D10);
-  static const Color border = Color(0xFF35355A);
-  static const Color textPrimary = Color(0xFFE8E8F0);
-  static const Color textMuted = Color(0xFF8888AA);
+  static const Color background = Color(0xFFEBEEF3);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceHigh = Color(0xFFEEF1F5);
+  static const Color navBar = Color(0xFFFFFFFF);
 
-  // ── Glassmorphism backdrop + surfaces ─────────────────────────────────────
-  // The reskin paints a dark gradient with soft blurred blobs behind the whole
-  // app (see [GlassBackground]); glass panels are semi-transparent white tints
-  // that let that backdrop show through.
+  /// Primary interactive colour (blue). Kept named `gold` for source compat.
+  static const Color gold = Color(0xFF22A7F0);
 
-  /// Vertical background gradient stops (deep indigo → deep navy).
-  static const Color bgGradientTop = Color(0xFF1A1440);
-  static const Color bgGradientMid = Color(0xFF0D1B3D);
-  static const Color bgGradientBottom = Color(0xFF14203A);
+  /// Selected / primary-container tint (light blue).
+  static const Color goldDark = Color(0xFFE1F1FD);
 
-  /// Soft, blurred backdrop blob colours.
-  static const Color blobPurple = Color(0xFF7A5CFF);
-  static const Color blobGold = Color(0xFFF0C440);
-  static const Color blobBlue = Color(0xFF4E9BFF);
+  static const Color border = Color(0xFFE4E8EE);
+  static const Color textPrimary = Color(0xFF13233B);
+  static const Color textMuted = Color(0xFF64748B);
 
-  /// Glass surface tints (flat white over the dark backdrop).
-  static const Color glassHeroFill = Color(0x1AFFFFFF); // ~0.10 — hero cards
-  static const Color glassRowFill = Color(0x14FFFFFF); // ~0.08 — list rows
-  static const Color glassBorder = Color(0x38FFFFFF); // ~0.22 — hero border
-  static const Color glassBorderSoft = Color(0x2EFFFFFF); // ~0.18 — row border
+  /// Extra semantic colours.
+  static const Color positive = Color(0xFF22C55E);
+  static const Color danger = Color(0xFFEF4444);
+  static const Color accentYellow = Color(0xFFFFB81C);
 
-  /// On-glass text colours — light, high-contrast against the dark backdrop.
-  static const Color onGlass = Color(0xD9FFFFFF); // ~0.85 white — primary text
-  static const Color onGlassMuted = Color(0x99FFFFFF); // ~0.60 white — labels
-  static const Color onGlassFaint = Color(0x66FFFFFF); // ~0.40 white — hints
+  // ── Background (kept for the shared background widget) ─────────────────────
+  // The reskin uses a flat light page colour; these were the old gradient/blob
+  // colours and are no longer painted.
+  static const Color bgGradientTop = background;
+  static const Color bgGradientMid = background;
+  static const Color bgGradientBottom = background;
+  static const Color blobPurple = background;
+  static const Color blobGold = background;
+  static const Color blobBlue = background;
 
-  /// Fill for modal bottom sheets — a mostly-opaque dark panel with a faint
-  /// translucency (no live blur, so the sheet stays smooth over blur-heavy pages
-  /// like Home). Over the modal scrim the page barely shows through.
-  static const Color glassSheetFill = Color(0xD9252540); // ~0.85 surface
-  /// Drop shadow beneath hero glass cards.
-  static const Color glassShadow = Color(0x59140A3C); // rgba(20,10,60,0.35)
+  // ── Card / surface tokens (used by the shared card widgets) ───────────────
+  static const Color glassHeroFill = surface; // white hero cards
+  static const Color glassRowFill = surface; // white list rows
+  static const Color glassBorder = Color(0xFFE7EBF0);
+  static const Color glassBorderSoft = Color(0xFFEDEFF3);
 
-  static ThemeData get darkTheme {
+  /// On-card text colours.
+  static const Color onGlass = textPrimary; // headings on white
+  static const Color onGlassMuted = textMuted; // labels
+  static const Color onGlassFaint = Color(0xFF94A3B8); // hints / chevrons
+
+  /// Modal bottom-sheet fill (white).
+  static const Color glassSheetFill = surface;
+
+  /// Soft drop shadow under cards.
+  static const Color glassShadow = Color(0x14101B2D); // ~8% navy
+
+  static ThemeData get darkTheme => lightTheme;
+
+  static ThemeData get lightTheme {
     const colorScheme = ColorScheme(
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       primary: gold,
-      onPrimary: Color(0xFF1A1A00),
+      onPrimary: Colors.white,
       primaryContainer: goldDark,
-      onPrimaryContainer: gold,
-      secondary: Color(0xFF9B8FFF),
-      onSecondary: Colors.white,
-      secondaryContainer: Color(0xFF2A2045),
-      onSecondaryContainer: Color(0xFFCCC0FF),
-      tertiary: Color(0xFF6DCEF5),
+      onPrimaryContainer: Color(0xFF0B4A73),
+      secondary: accentYellow,
+      onSecondary: Color(0xFF3A2A00),
+      secondaryContainer: Color(0xFFFFF2D2),
+      onSecondaryContainer: Color(0xFF5A4300),
+      tertiary: positive,
       onTertiary: Colors.white,
-      tertiaryContainer: Color(0xFF1A2E40),
-      onTertiaryContainer: Color(0xFFB0E8FF),
-      error: Color(0xFFFF6B6B),
+      tertiaryContainer: Color(0xFFDCF7E6),
+      onTertiaryContainer: Color(0xFF0C5A2C),
+      error: danger,
       onError: Colors.white,
-      errorContainer: Color(0xFF3D1010),
-      onErrorContainer: Color(0xFFFF9999),
+      errorContainer: Color(0xFFFEE2E2),
+      onErrorContainer: Color(0xFF8A1C1C),
       surface: surface,
       onSurface: textPrimary,
       surfaceContainerHighest: surfaceHigh,
       onSurfaceVariant: textMuted,
       outline: border,
-      outlineVariant: Color(0xFF2A2A4A),
-      shadow: Colors.black,
-      scrim: Colors.black,
+      outlineVariant: Color(0xFFEDF0F4),
+      shadow: Color(0x33101B2D),
+      scrim: Color(0x66101B2D),
       inverseSurface: textPrimary,
-      onInverseSurface: background,
-      inversePrimary: Color(0xFF7A6000),
+      onInverseSurface: Colors.white,
+      inversePrimary: Color(0xFF9AD6FA),
     );
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       colorScheme: colorScheme,
-      // Transparent so the global [GlassBackground] (gradient + blobs) shows
-      // through every screen. The backdrop is painted once at the app root.
-      scaffoldBackgroundColor: Colors.transparent,
+      scaffoldBackgroundColor: Colors.transparent, // GlassBackground paints bg
 
-      // AppBar — fully transparent so the title sits directly on the gradient
-      // backdrop (no glass panel behind it, unlike the bottom nav bar).
+      // AppBar — sits on the light page, dark title, no shadow.
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: textPrimary,
@@ -104,111 +114,112 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         titleTextStyle: TextStyle(
           color: textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
         ),
-        iconTheme: IconThemeData(color: textMuted),
-        actionsIconTheme: IconThemeData(color: textMuted),
+        iconTheme: IconThemeData(color: textPrimary),
+        actionsIconTheme: IconThemeData(color: textPrimary),
       ),
 
-      // Cards — glass: flat translucent fill + soft light border over the
-      // shared gradient backdrop (matches ListGlassRow; standout cards use
-      // HeroGlassCard for a real blur).
+      // Cards — white, rounded, soft shadow.
       cardTheme: CardThemeData(
-        color: glassRowFill,
+        color: surface,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        shadowColor: glassShadow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: glassBorderSoft, width: 1),
+          borderRadius: BorderRadius.circular(18),
         ),
         margin: EdgeInsets.zero,
       ),
 
-      // Input fields — glass: translucent fill + soft light border.
+      // Input fields — light grey fill, rounded, blue focus.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: glassHeroFill,
+        fillColor: surfaceHigh,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: glassBorderSoft),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: glassBorderSoft),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: gold, width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: gold, width: 1.6),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFFF6B6B)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: danger, width: 1.6),
         ),
         labelStyle: const TextStyle(color: textMuted),
-        hintStyle: TextStyle(color: textMuted.withAlpha(153)),
+        hintStyle: const TextStyle(color: Color(0xFF9AA6B5)),
         prefixStyle: const TextStyle(color: textPrimary),
         suffixIconColor: textMuted,
+        prefixIconColor: textMuted,
         helperStyle: const TextStyle(color: textMuted, fontSize: 12),
       ),
 
-      // Elevated buttons (gold, dark text)
+      // Elevated buttons — blue fill, white text, pill-ish.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: gold,
-          foregroundColor: const Color(0xFF1A1A00),
-          disabledBackgroundColor: border,
-          disabledForegroundColor: textMuted,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFDCE1E8),
+          disabledForegroundColor: const Color(0xFF9AA6B5),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           elevation: 0,
         ),
       ),
 
-      // Outlined buttons (gold border and text)
+      // Outlined buttons — blue border and text.
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: gold,
-          side: const BorderSide(color: gold),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          side: const BorderSide(color: gold, width: 1.4),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),
 
       // Text buttons
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: gold),
-      ),
-
-      // FAB — rounded square, gold
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: gold,
-        foregroundColor: Color(0xFF1A1A00),
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(14)),
+        style: TextButton.styleFrom(
+          foregroundColor: gold,
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
 
-      // NavigationBar — transparent; the bar is wrapped in a frosted glass
-      // container at the app root (see AppShell) so the backdrop blurs behind it.
+      // FAB — blue, rounded.
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: gold,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+      ),
+
+      // NavigationBar — light; the app root wraps the bar in a floating pill.
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: surface,
         indicatorColor: goldDark,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -221,7 +232,7 @@ class AppTheme {
             return const TextStyle(
               color: gold,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             );
           }
           return const TextStyle(color: textMuted, fontSize: 12);
@@ -232,12 +243,12 @@ class AppTheme {
 
       // Chips
       chipTheme: ChipThemeData(
-        backgroundColor: surface,
+        backgroundColor: surfaceHigh,
         selectedColor: goldDark,
         side: const BorderSide(color: border),
         labelStyle: const TextStyle(color: textPrimary, fontSize: 13),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
 
       // Dialogs
@@ -245,20 +256,18 @@ class AppTheme {
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: border),
+          borderRadius: BorderRadius.circular(20),
         ),
       ),
 
-      // Bottom sheets — transparent so sheets can paint their own frosted glass
-      // (see GlassSheetBackground); opaque surface would hide the backdrop.
+      // Bottom sheets — transparent so sheets paint their own white surface.
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: Colors.transparent,
         modalBackgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
 
@@ -275,15 +284,15 @@ class AppTheme {
         iconColor: textMuted,
       ),
 
-      // SegmentedButton
+      // SegmentedButton — light track, white selected segment, dark text.
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: SegmentedButton.styleFrom(
-          backgroundColor: surface,
+          backgroundColor: surfaceHigh,
           foregroundColor: textMuted,
-          selectedForegroundColor: gold,
-          selectedBackgroundColor: goldDark,
+          selectedForegroundColor: textPrimary,
+          selectedBackgroundColor: surface,
           side: const BorderSide(color: border),
-          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
 
@@ -295,11 +304,11 @@ class AppTheme {
         collapsedTextColor: textPrimary,
       ),
 
-      // Snackbar
+      // Snackbar — dark navy for contrast.
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: surfaceHigh,
-        contentTextStyle: const TextStyle(color: textPrimary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: textPrimary,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
       ),
 
@@ -308,15 +317,12 @@ class AppTheme {
         displayLarge: TextStyle(color: textPrimary),
         displayMedium: TextStyle(color: textPrimary),
         displaySmall: TextStyle(color: textPrimary),
-        headlineLarge: TextStyle(color: textPrimary),
-        headlineMedium: TextStyle(
-          color: textPrimary,
-          fontWeight: FontWeight.bold,
-        ),
-        headlineSmall: TextStyle(color: textPrimary),
-        titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-        titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
-        titleSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
+        headlineLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
+        headlineMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
+        headlineSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+        titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+        titleSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
         bodyLarge: TextStyle(color: textPrimary),
         bodyMedium: TextStyle(color: textPrimary),
         bodySmall: TextStyle(color: textMuted),

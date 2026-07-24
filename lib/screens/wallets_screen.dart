@@ -115,7 +115,7 @@ class _WalletsScreenState extends State<WalletsScreen> {
             Text(
               _fmt.format(netWorth),
               style: TextStyle(
-                color: netWorth >= 0 ? Colors.white : const Color(0xFFFF8A8A),
+                color: netWorth >= 0 ? AppTheme.textPrimary : AppTheme.danger,
                 fontSize: 30,
                 fontWeight: FontWeight.bold,
               ),

@@ -225,9 +225,7 @@ class _NetWorthCard extends StatelessWidget {
               Text(
                 fmt.format(netWorth),
                 style: TextStyle(
-                  color: netWorth >= 0
-                      ? Colors.white
-                      : const Color(0xFFFF8A8A),
+                  color: netWorth >= 0 ? AppTheme.textPrimary : AppTheme.danger,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
