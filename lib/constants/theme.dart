@@ -65,6 +65,10 @@ class AppTheme {
   /// Soft drop shadow under cards.
   static const Color glassShadow = Color(0x14101B2D); // ~8% navy
 
+  /// Translucent white fill for the frosted floating nav pill (content behind
+  /// shows through the blur).
+  static const Color navGlassFill = Color(0x1AFFFFFF); // ~0.55 white
+
   static ThemeData get darkTheme => lightTheme;
 
   static ThemeData get lightTheme {

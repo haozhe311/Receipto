@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final activeIdx = settings.activeIndexFor(provider);
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
             children: [
               // ══════════ MANAGE ══════════
               const _GroupHeader(title: 'Manage'),

@@ -10,11 +10,7 @@ class ChatMessage {
   final bool isUser;
   final bool isError;
 
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    this.isError = false,
-  });
+  ChatMessage({required this.text, required this.isUser, this.isError = false});
 }
 
 /// AI-powered financial chatbot screen.
@@ -40,7 +36,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.initState();
     _messages.add(
       ChatMessage(
-        text: 'Hi! I\'m your Receipto financial assistant.\n\n'
+        text:
+            'Hi! I\'m your Receipto financial assistant.\n\n'
             'I have access to your **full transaction history** — yearly summaries, '
             'monthly breakdowns, and your latest 50 transactions.\n\n'
             'Try asking:\n'
@@ -147,7 +144,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       setState(() {
         _messages.add(
           ChatMessage(
-            text: 'Could not reach the AI service. '
+            text:
+                'Could not reach the AI service. '
                 'Check your API key and internet connection.\n\nError: $e',
             isUser: false,
             isError: true,
@@ -199,24 +197,25 @@ class _ChatBubble extends StatelessWidget {
     final bgColor = message.isError
         ? const Color(0xFFFEE2E2)
         : isUser
-            ? AppTheme.goldDark
-            : AppTheme.glassRowFill;
+        ? AppTheme.goldDark
+        : AppTheme.glassRowFill;
     final textColor = message.isError
         ? const Color(0xFFFF9999)
         : isUser
-            ? AppTheme.gold
-            : AppTheme.textPrimary;
+        ? AppTheme.gold
+        : AppTheme.textPrimary;
     final borderColor = message.isError
         ? const Color(0xFFFECACA)
         : isUser
-            ? AppTheme.gold
-            : AppTheme.border;
+        ? AppTheme.gold
+        : AppTheme.border;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser)
@@ -297,7 +296,7 @@ class _MarkdownText extends StatelessWidget {
       }
 
       final isBullet = line.startsWith('- ') || line.startsWith('* ');
-      final content  = isBullet ? line.substring(2) : line;
+      final content = isBullet ? line.substring(2) : line;
 
       if (isBullet) {
         widgets.add(
@@ -350,30 +349,30 @@ class _MarkdownText extends StatelessWidget {
     for (final match in pattern.allMatches(line)) {
       // Plain text before the match
       if (match.start > cursor) {
-        spans.add(TextSpan(
-          text: line.substring(cursor, match.start),
-          style: TextStyle(color: defaultColor),
-        ));
+        spans.add(
+          TextSpan(
+            text: line.substring(cursor, match.start),
+            style: TextStyle(color: defaultColor),
+          ),
+        );
       }
 
       if (match.group(1) != null) {
         // **bold**
-        spans.add(TextSpan(
-          text: match.group(1),
-          style: TextStyle(
-            color: defaultColor,
-            fontWeight: FontWeight.bold,
+        spans.add(
+          TextSpan(
+            text: match.group(1),
+            style: TextStyle(color: defaultColor, fontWeight: FontWeight.bold),
           ),
-        ));
+        );
       } else if (match.group(2) != null) {
         // *italic*
-        spans.add(TextSpan(
-          text: match.group(2),
-          style: TextStyle(
-            color: defaultColor,
-            fontStyle: FontStyle.italic,
+        spans.add(
+          TextSpan(
+            text: match.group(2),
+            style: TextStyle(color: defaultColor, fontStyle: FontStyle.italic),
           ),
-        ));
+        );
       }
 
       cursor = match.end;
@@ -381,10 +380,12 @@ class _MarkdownText extends StatelessWidget {
 
     // Remaining plain text
     if (cursor < line.length) {
-      spans.add(TextSpan(
-        text: line.substring(cursor),
-        style: TextStyle(color: defaultColor),
-      ));
+      spans.add(
+        TextSpan(
+          text: line.substring(cursor),
+          style: TextStyle(color: defaultColor),
+        ),
+      );
     }
 
     return TextSpan(children: spans);
@@ -442,46 +443,51 @@ class _InputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: const BoxDecoration(
-        color: AppTheme.navBar,
-        border: Border(top: BorderSide(color: AppTheme.border)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  hintText: 'Ask about your spending...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+    // Floating composer that sits just above the floating pill nav (the body
+    // extends behind the nav). No full-width bar — a white rounded field on the
+    // page, so there's no awkward gap under it.
+    // safeBottom already includes the floating-nav clearance (the shell sets it
+    // via extendBody), so we must NOT add extra on top of it.
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 6, 12, 10 + safeBottom),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Ask about your spending...',
+                filled: true,
+                fillColor: AppTheme.surface,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: AppTheme.border),
                 ),
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => onSend(),
-                enabled: !isLoading,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => onSend(),
+              enabled: !isLoading,
             ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              onPressed: isLoading ? null : onSend,
-              icon: const Icon(Icons.send),
-              style: IconButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(12),
-              ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: isLoading ? null : onSend,
+            icon: const Icon(Icons.send),
+            style: IconButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.all(12),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

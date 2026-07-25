@@ -70,110 +70,135 @@ class _HomeScreenState extends State<HomeScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return Column(
-            children: [
-              // Net worth (sum of all account balances) → Wallets.
-              // Global, always-current figure: kept above and visually
-              // separated from the month/category-scoped section below.
-              const SizedBox(height: 12),
-              const _NetWorthCard(),
-              const SizedBox(height: 8),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Divider(color: AppTheme.border, height: 1),
-              ),
-
-              // ── Month-scoped section ──────────────────────────────────
-              // Spending summary card with month navigator
-              SummaryCard(
-                monthlyTotal: provider.displayTotal,
-                transactionCount: provider.transactionCount,
-                selectedMonth: provider.selectedMonth,
-                isCurrentMonth: provider.isCurrentMonth,
-                onPreviousMonth: () => provider.navigateMonth(-1),
-                onNextMonth: () => provider.navigateMonth(1),
-                selectedCategory: provider.selectedCategory,
-                selectedAccount: provider.selectedAccount,
-              ),
-
-              // Cash-flow strip (only in the unfiltered month view)
-              if (!provider.hasFilter)
-                _CashFlowStrip(
-                  income: provider.monthlyIncome,
-                  expense: provider.monthlyTotal,
-                  net: provider.netSavings,
+          // The whole page scrolls as one: the net-worth / summary / filters
+          // header and the transaction list share a single scroll view.
+          return CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    // Net worth (sum of all account balances) → Wallets.
+                    const SizedBox(height: 12),
+                    const _NetWorthCard(),
+                    const SizedBox(height: 8),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Divider(color: AppTheme.border, height: 1),
+                    ),
+                    // Spending summary card with month navigator
+                    SummaryCard(
+                      monthlyTotal: provider.displayTotal,
+                      transactionCount: provider.transactionCount,
+                      selectedMonth: provider.selectedMonth,
+                      isCurrentMonth: provider.isCurrentMonth,
+                      onPreviousMonth: () => provider.navigateMonth(-1),
+                      onNextMonth: () => provider.navigateMonth(1),
+                      selectedCategory: provider.selectedCategory,
+                      selectedAccount: provider.selectedAccount,
+                    ),
+                    // Cash-flow strip (only in the unfiltered month view)
+                    if (!provider.hasFilter)
+                      _CashFlowStrip(
+                        income: provider.monthlyIncome,
+                        expense: provider.monthlyTotal,
+                        net: provider.netSavings,
+                      ),
+                    // Category + account filter controls (AND-combined)
+                    _HomeFilters(
+                      selectedCategory: provider.selectedCategory,
+                      selectedAccount: provider.selectedAccount,
+                    ),
+                  ],
                 ),
-
-              // Category + account filter controls (independent, AND-combined)
-              _HomeFilters(
-                selectedCategory: provider.selectedCategory,
-                selectedAccount: provider.selectedAccount,
               ),
 
-              // Transaction list or empty state
-              Expanded(
-                child: provider.transactions.isEmpty
-                    ? const EmptyState()
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.only(bottom: 80),
-                        // +1 for the bottom loading indicator slot
-                        itemCount: provider.transactions.length + 1,
-                        itemBuilder: (context, index) {
-                          // Last slot: loading indicator or end spacer
-                          if (index == provider.transactions.length) {
-                            if (provider.isLoadingMore) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          }
-
-                          final transaction = provider.transactions[index];
-                          return TransactionTile(
-                            transaction: transaction,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AddEditTransactionScreen(
-                                  transaction: transaction,
+              if (provider.transactions.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 32),
+                    child: EmptyState(),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      // Last slot: loading indicator or end spacer.
+                      if (index == provider.transactions.length) {
+                        if (provider.isLoadingMore) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
                                 ),
                               ),
                             ),
-                            onDelete: () {
-                              if (transaction.id != null) {
-                                provider.deleteTransaction(transaction.id!);
-                                // Refresh account balances / net worth.
-                                context.read<AccountProvider>().loadAccounts();
-                              }
-                            },
                           );
+                        }
+                        return const SizedBox.shrink();
+                      }
+
+                      final transaction = provider.transactions[index];
+                      return TransactionTile(
+                        transaction: transaction,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddEditTransactionScreen(
+                              transaction: transaction,
+                            ),
+                          ),
+                        ),
+                        onDelete: () {
+                          if (transaction.id != null) {
+                            provider.deleteTransaction(transaction.id!);
+                            // Refresh account balances / net worth.
+                            context.read<AccountProvider>().loadAccounts();
+                          }
                         },
-                      ),
-              ),
+                      );
+                    },
+                    childCount: provider.transactions.length + 1,
+                  ),
+                ),
+
+              // Clearance so the last row isn't hidden by the floating pill nav.
+              const SliverToBoxAdapter(child: SizedBox(height: 104)),
             ],
           );
         },
       ),
+      // Lifted above the floating pill nav (the body extends behind it).
+      floatingActionButtonLocation: const _LiftedFabLocation(96),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AddEditTransactionScreen()),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.add),
       ),
     );
+  }
+}
+
+/// Positions the FAB like `endFloat` but lifted up by [lift] px, so it clears
+/// the floating pill nav that the body extends behind.
+class _LiftedFabLocation extends FloatingActionButtonLocation {
+  final double lift;
+
+  const _LiftedFabLocation(this.lift);
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final base =
+        FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    return Offset(base.dx, base.dy - lift);
   }
 }
 

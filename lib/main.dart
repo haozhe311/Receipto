@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
@@ -137,6 +139,9 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Let the body extend behind the nav so the pill floats over the content
+      // (like the reference) instead of sitting in a reserved bar.
+      extendBody: true,
       // IndexedStack preserves state across tab switches.
       body: IndexedStack(index: _currentIndex, children: _screens),
       // Floating white pill nav (ParkingLah-style): active tab gets a rounded
@@ -145,9 +150,11 @@ class _AppShellState extends State<AppShell> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          child: Container(
+          // Shadow on the outer box (kept outside the clip); the inner layer is
+          // a real backdrop blur of the content behind + a translucent white
+          // fill, so a hint of the page shows through the pill.
+          child: DecoratedBox(
             decoration: BoxDecoration(
-              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(28),
               boxShadow: const [
                 BoxShadow(
@@ -157,16 +164,34 @@ class _AppShellState extends State<AppShell> {
                 ),
               ],
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: [
-                _navItem(0, Icons.home_outlined, Icons.home, 'Home'),
-                _navItem(1, Icons.bar_chart_outlined, Icons.bar_chart,
-                    'Analytics'),
-                _navItem(2, Icons.smart_toy_outlined, Icons.smart_toy, 'Chat'),
-                _navItem(3, Icons.settings_outlined, Icons.settings,
-                    'Settings'),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.navGlassFill,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: const Color(0x99FFFFFF),
+                      width: 1,
+                    ),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    children: [
+                      _navItem(0, Icons.home_outlined, Icons.home, 'Home'),
+                      _navItem(1, Icons.bar_chart_outlined, Icons.bar_chart,
+                          'Analytics'),
+                      _navItem(
+                          2, Icons.smart_toy_outlined, Icons.smart_toy, 'Chat'),
+                      _navItem(3, Icons.settings_outlined, Icons.settings,
+                          'Settings'),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
