@@ -397,7 +397,7 @@ class _SplitScreenState extends State<SplitScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
-        color: mine ? AppTheme.glassHeroFill : AppTheme.glassRowFill,
+        color: mine ? AppTheme.goldDark : AppTheme.surfaceHigh,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: mine ? AppTheme.gold.withAlpha(120) : AppTheme.border,

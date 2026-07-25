@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Light, clean theme for Receipto (ParkingLah-style).
 ///
@@ -102,6 +103,8 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: colorScheme,
+      // Nunito — the rounded, friendly sans in the reference design.
+      fontFamily: GoogleFonts.nunito().fontFamily,
       scaffoldBackgroundColor: Colors.transparent, // GlassBackground paints bg
 
       // AppBar — sits on the light page, dark title, no shadow.
@@ -112,14 +115,15 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: TextStyle(
+        iconTheme: IconThemeData(color: textPrimary),
+        actionsIconTheme: IconThemeData(color: textPrimary),
+      ).copyWith(
+        titleTextStyle: GoogleFonts.nunito(
           color: textPrimary,
           fontSize: 22,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.2,
         ),
-        iconTheme: IconThemeData(color: textPrimary),
-        actionsIconTheme: IconThemeData(color: textPrimary),
       ),
 
       // Cards — white, rounded, soft shadow.
@@ -312,23 +316,29 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
       ),
 
-      // Text theme
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(color: textPrimary),
-        displayMedium: TextStyle(color: textPrimary),
-        displaySmall: TextStyle(color: textPrimary),
-        headlineLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
-        headlineMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
-        headlineSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
-        titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
-        titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-        titleSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(color: textPrimary),
-        bodyMedium: TextStyle(color: textPrimary),
-        bodySmall: TextStyle(color: textMuted),
-        labelLarge: TextStyle(color: textPrimary),
-        labelMedium: TextStyle(color: textMuted),
-        labelSmall: TextStyle(color: textMuted),
+      // Text theme — Nunito applied to every style, colours preserved.
+      textTheme: GoogleFonts.nunitoTextTheme(
+        const TextTheme(
+          displayLarge: TextStyle(color: textPrimary),
+          displayMedium: TextStyle(color: textPrimary),
+          displaySmall: TextStyle(color: textPrimary),
+          headlineLarge:
+              TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
+          headlineMedium:
+              TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
+          headlineSmall:
+              TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+          titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+          titleMedium:
+              TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+          titleSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+          bodyLarge: TextStyle(color: textPrimary),
+          bodyMedium: TextStyle(color: textPrimary),
+          bodySmall: TextStyle(color: textMuted),
+          labelLarge: TextStyle(color: textPrimary),
+          labelMedium: TextStyle(color: textMuted),
+          labelSmall: TextStyle(color: textMuted),
+        ),
       ),
 
       // Icon theme
