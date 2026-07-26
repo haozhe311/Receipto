@@ -207,15 +207,38 @@ class _AppShellState extends State<AppShell> {
                   ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: Row(
+                  child: Stack(
                     children: [
-                      _navItem(0, Icons.home_outlined, Icons.home, 'Home'),
-                      _navItem(1, Icons.bar_chart_outlined, Icons.bar_chart,
-                          'Analytics'),
-                      _navItem(
-                          2, Icons.smart_toy_outlined, Icons.smart_toy, 'Chat'),
-                      _navItem(3, Icons.settings_outlined, Icons.settings,
-                          'Settings'),
+                      // Single highlight that slides between the four slots,
+                      // in sync with the page transition.
+                      Positioned.fill(
+                        child: AnimatedAlign(
+                          alignment: Alignment((_currentIndex - 1.5) * 2 / 3, 0),
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeInOutCubic,
+                          child: FractionallySizedBox(
+                            widthFactor: 1 / 4,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.goldDark,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          _navItem(0, Icons.home_outlined, Icons.home, 'Home'),
+                          _navItem(1, Icons.bar_chart_outlined,
+                              Icons.bar_chart, 'Analytics'),
+                          _navItem(2, Icons.smart_toy_outlined,
+                              Icons.smart_toy, 'Chat'),
+                          _navItem(3, Icons.settings_outlined, Icons.settings,
+                              'Settings'),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -229,36 +252,37 @@ class _AppShellState extends State<AppShell> {
 
   Widget _navItem(int index, IconData icon, IconData activeIcon, String label) {
     final selected = _currentIndex == index;
+    // Crossfade the icon/label colour over the same window as the sliding
+    // highlight so the whole thing moves together.
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _goToTab(index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? AppTheme.goldDark : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                selected ? activeIcon : icon,
-                size: 22,
-                color: selected ? AppTheme.gold : AppTheme.textMuted,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? AppTheme.gold : AppTheme.textMuted,
-                ),
-              ),
-            ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 3),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: selected ? 1 : 0),
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeInOutCubic,
+            builder: (context, t, _) {
+              final color = Color.lerp(AppTheme.textMuted, AppTheme.gold, t)!;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(selected ? activeIcon : icon, size: 22, color: color),
+                  const SizedBox(height: 3),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight:
+                          t > 0.5 ? FontWeight.w700 : FontWeight.w500,
+                      color: color,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
