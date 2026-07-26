@@ -10,6 +10,7 @@ import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
 import 'package:receipto/screens/wallets_screen.dart';
 import 'package:receipto/widgets/account_filter_sheet.dart';
+import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/glass.dart';
@@ -150,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         transaction: transaction,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
+                          AppPageRoute(
                             builder: (_) => AddEditTransactionScreen(
                               transaction: transaction,
                             ),
@@ -180,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: PressableScale(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AddEditTransactionScreen()),
+          AppPageRoute(builder: (_) => const AddEditTransactionScreen()),
         ),
         child: Container(
           width: 56,
@@ -238,7 +239,7 @@ class _NetWorthCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const WalletsScreen()),
+            AppPageRoute(builder: (_) => const WalletsScreen()),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

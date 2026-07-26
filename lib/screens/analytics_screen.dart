@@ -9,6 +9,7 @@ import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/screens/budgets_screen.dart';
 import 'package:receipto/services/database_helper.dart';
 import 'package:receipto/services/insight_service.dart';
+import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/widgets/budget_widgets.dart';
 
 /// Spending analytics: monthly cash-flow, category breakdown, and a
@@ -310,7 +311,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             borderRadius: BorderRadius.circular(12),
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+              AppPageRoute(builder: (_) => const BudgetsScreen()),
             ),
             child: Container(
               padding:

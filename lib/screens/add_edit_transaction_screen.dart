@@ -15,6 +15,7 @@ import 'package:receipto/screens/manage_categories_screen.dart';
 import 'package:receipto/screens/split_screen.dart';
 import 'package:receipto/services/ai_service.dart';
 import 'package:receipto/services/ocr_service.dart';
+import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/glass.dart';
 
@@ -477,7 +478,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   /// its entered fields are preserved, and pressing back returns here.
   void _openManageCategories() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ManageCategoriesScreen()),
+      AppPageRoute(builder: (_) => const ManageCategoriesScreen()),
     );
   }
 
@@ -502,7 +503,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   Future<void> _openSplit() async {
     final result = await Navigator.push<SplitResult>(
       context,
-      MaterialPageRoute(builder: (_) => const SplitScreen()),
+      AppPageRoute(builder: (_) => const SplitScreen()),
     );
     if (result == null || !mounted) return;
     setState(() {

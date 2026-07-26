@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
+import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/screens/backup_screen.dart';
 import 'package:receipto/screens/budgets_screen.dart';
 import 'package:receipto/screens/goals_screen.dart';
@@ -70,7 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Manage Categories',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  AppPageRoute(
                     builder: (_) => const ManageCategoriesScreen(),
                   ),
                 ),
@@ -81,7 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Budgets',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+                  AppPageRoute(builder: (_) => const BudgetsScreen()),
                 ),
               ),
               const SizedBox(height: 8),
@@ -90,7 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Savings Goals',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                  AppPageRoute(builder: (_) => const GoalsScreen()),
                 ),
               ),
               const SizedBox(height: 8),
@@ -99,7 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Recurring Transactions',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const RecurringScreen()),
+                  AppPageRoute(builder: (_) => const RecurringScreen()),
                 ),
               ),
               const SizedBox(height: 8),
@@ -108,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Subscriptions',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  AppPageRoute(
                     builder: (_) => const SubscriptionsScreen(),
                   ),
                 ),
@@ -119,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Wallets & Balances',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const WalletsScreen()),
+                  AppPageRoute(builder: (_) => const WalletsScreen()),
                 ),
               ),
               const SizedBox(height: 28),
@@ -384,7 +385,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Backup & Restore',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const BackupScreen()),
+                  AppPageRoute(builder: (_) => const BackupScreen()),
                 ),
               ),
               const SizedBox(height: 24),

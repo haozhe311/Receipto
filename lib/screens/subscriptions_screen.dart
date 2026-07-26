@@ -6,6 +6,7 @@ import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/recurring_transaction.dart';
 import 'package:receipto/providers/recurring_provider.dart';
 import 'package:receipto/screens/add_edit_recurring_screen.dart';
+import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/widgets/glass.dart';
 
 /// Focused view of recurring items flagged as subscriptions, with the total
@@ -38,7 +39,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(
+          AppPageRoute(
             builder: (_) =>
                 const AddEditRecurringScreen(defaultSubscription: true),
           ),
@@ -112,7 +113,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(
+        AppPageRoute(
           builder: (_) => AddEditRecurringScreen(existing: sub),
         ),
       ),

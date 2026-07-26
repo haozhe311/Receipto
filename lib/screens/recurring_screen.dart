@@ -7,6 +7,7 @@ import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/recurring_transaction.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/recurring_provider.dart';
+import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/screens/add_edit_recurring_screen.dart';
 
 /// Lists all recurring transaction templates and lets the user manage them.
@@ -38,7 +39,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(
+          AppPageRoute(
             builder: (_) => const AddEditRecurringScreen(),
           ),
         ),
@@ -115,7 +116,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
       child: GestureDetector(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
+          AppPageRoute(
             builder: (_) => AddEditRecurringScreen(existing: item),
           ),
         ),

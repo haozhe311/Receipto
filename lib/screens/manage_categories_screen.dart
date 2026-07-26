@@ -5,6 +5,7 @@ import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/category_model.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/screens/category_detail_screen.dart';
+import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/widgets/category_pickers.dart';
 
 /// Lists categories and opens each one's detail screen.
@@ -95,7 +96,7 @@ class _CategoryRow extends StatelessWidget {
           ? null
           : () => Navigator.push(
                 context,
-                MaterialPageRoute(
+                AppPageRoute(
                   builder: (_) =>
                       CategoryDetailScreen(categoryName: category.name),
                 ),
