@@ -179,11 +179,17 @@ class FrostedSheetBackground extends StatelessWidget {
   }
 }
 
-// ── Opaque page transitions ───────────────────────────────────────────────────
+// ── App-open page transitions ─────────────────────────────────────────────────
 
-/// Gives every pushed route its own opaque [GlassBackground] before applying the
-/// normal platform page transition, so a route transition can't reveal the page
-/// underneath through a transparent scaffold.
+/// iOS/Xiaomi-style "app-open" page transition: the incoming page grows from
+/// slightly smaller while fading in, and the page it covers recedes a touch for
+/// depth. Every pushed route also gets its own opaque [GlassBackground] so the
+/// transition never reveals the page underneath through a transparent scaffold.
+///
+/// It is inherently interruptible: push and pop are driven by the same route
+/// animation controller, so tapping back (or otherwise reversing) mid-open
+/// smoothly plays the animation backwards from wherever it is — the "grab it
+/// mid-flight" feel from phone-smoothness showcase videos.
 class GlassPageTransitionsBuilder extends PageTransitionsBuilder {
   const GlassPageTransitionsBuilder();
 
@@ -195,12 +201,38 @@ class GlassPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    return const ZoomPageTransitionsBuilder().buildTransitions(
-      route,
-      context,
-      animation,
-      secondaryAnimation,
-      GlassBackground(child: child),
+    // Incoming page: fade + scale up from 0.92 → 1.0.
+    final fade = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      reverseCurve: Curves.easeIn,
+    );
+    final scaleIn = Tween<double>(begin: 0.92, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+    );
+    // Page being covered: recede slightly for depth (revealed edges show the
+    // light scaffold background, so no dark slivers appear).
+    final scaleUnder = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(
+        parent: secondaryAnimation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+    );
+
+    return ScaleTransition(
+      scale: scaleUnder,
+      child: FadeTransition(
+        opacity: fade,
+        child: ScaleTransition(
+          scale: scaleIn,
+          child: GlassBackground(child: child),
+        ),
+      ),
     );
   }
 }

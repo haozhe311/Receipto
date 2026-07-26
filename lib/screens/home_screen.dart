@@ -13,6 +13,7 @@ import 'package:receipto/widgets/account_filter_sheet.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/empty_state.dart';
 import 'package:receipto/widgets/glass.dart';
+import 'package:receipto/widgets/pressable.dart';
 import 'package:receipto/widgets/summary_card.dart';
 import 'package:receipto/widgets/transaction_tile.dart';
 
@@ -176,13 +177,27 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       // Lifted above the floating pill nav (the body extends behind it).
       floatingActionButtonLocation: const _LiftedFabLocation(96),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
+      floatingActionButton: PressableScale(
+        onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AddEditTransactionScreen()),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppTheme.gold,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.glassShadow,
+                blurRadius: 16,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
+        ),
       ),
     );
   }

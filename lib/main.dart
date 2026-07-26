@@ -17,6 +17,7 @@ import 'package:receipto/screens/home_screen.dart';
 import 'package:receipto/screens/settings_screen.dart';
 import 'package:receipto/services/backup_service.dart';
 import 'package:receipto/widgets/glass.dart';
+import 'package:receipto/widgets/pressable.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -255,9 +256,10 @@ class _AppShellState extends State<AppShell> {
     // Crossfade the icon/label colour over the same window as the sliding
     // highlight so the whole thing moves together.
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+      child: PressableScale(
         onTap: () => _goToTab(index),
+        pressedScale: 0.86,
+        pressedOpacity: 0.6,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 3),
           child: TweenAnimationBuilder<double>(
@@ -313,3 +315,4 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
     return widget.child;
   }
 }
+
