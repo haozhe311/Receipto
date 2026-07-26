@@ -72,6 +72,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
+  final PageController _pageController = PageController();
 
   // The four main tab screens.
   final List<Widget> _screens = const [
@@ -86,6 +87,24 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     // Load initial data after the first frame.
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  /// Slides to [index] with a smooth horizontal transition (the direction is
+  /// inferred automatically from the current page).
+  void _goToTab(int index) {
+    if (index == _currentIndex) return;
+    setState(() => _currentIndex = index); // immediate nav-pill highlight
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeInOutCubic,
+    );
   }
 
   Future<void> _loadInitialData() async {
@@ -142,8 +161,17 @@ class _AppShellState extends State<AppShell> {
       // Let the body extend behind the nav so the pill floats over the content
       // (like the reference) instead of sitting in a reserved bar.
       extendBody: true,
-      // IndexedStack preserves state across tab switches.
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      // PageView slides between tabs; keep-alive wrappers preserve each tab's
+      // state (scroll position, etc.) like the old IndexedStack did. Swipe is
+      // disabled so only nav taps drive the transition.
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        children: [
+          for (final screen in _screens) _KeepAlivePage(child: screen),
+        ],
+      ),
       // Floating white pill nav (ParkingLah-style): active tab gets a rounded
       // light-blue highlight with a blue icon + label.
       bottomNavigationBar: SafeArea(
@@ -204,7 +232,7 @@ class _AppShellState extends State<AppShell> {
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _currentIndex = index),
+        onTap: () => _goToTab(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -235,5 +263,29 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
     );
+  }
+}
+
+/// Keeps a tab's element tree alive while it's off-screen in the [PageView], so
+/// switching tabs preserves scroll position and other ephemeral state (the same
+/// guarantee the previous IndexedStack gave).
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
