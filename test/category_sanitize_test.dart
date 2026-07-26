@@ -80,7 +80,7 @@ void main() {
 
   test('built-ins cannot be identified as custom', () {
     expect(CategoryProvider.isBuiltIn('Food'), isTrue);
-    expect(CategoryProvider.isBuiltIn('Health'), isTrue);
+    expect(CategoryProvider.isBuiltIn('Health & Fitness'), isTrue);
     expect(CategoryProvider.isBuiltIn('Coffee'), isFalse);
   });
 }

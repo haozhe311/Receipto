@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:receipto/constants/category_icons.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/category_model.dart';
 import 'package:receipto/widgets/glass.dart';
@@ -45,14 +45,18 @@ Widget categoryIconWidget(
   String? iconKey,
   String emoji, [
   double size = 20,
+  int? colorValue,
 ]) {
-  final hasSwatch =
-      iconKey != null || CategoryIcons.builtInKeyFor(name) != null;
-  if (!hasSwatch && emoji.isNotEmpty) {
-    return Text(emoji, style: TextStyle(fontSize: size * 0.85, height: 1));
-  }
-  final option = CategoryIcons.resolve(name, iconKey);
-  return Icon(option.icon, size: size, color: option.color);
+  final visual = CategoryGlyphs.categoryVisual(
+    name: name,
+    iconKey: iconKey,
+    colorValue: colorValue,
+  );
+  return CategoryGlyph(
+    assetPath: visual.assetPath,
+    color: visual.color,
+    size: size,
+  );
 }
 
 // ── Row styling ───────────────────────────────────────────────────────────────
@@ -372,7 +376,7 @@ class _CategorySheetState extends State<CategorySheet> {
   }
 
   Widget _leadingFor(CategoryModel c) =>
-      categoryIconWidget(c.name, c.iconKey, c.emoji, kCatIconSize);
+      categoryIconWidget(c.name, c.iconKey, c.emoji, kCatIconSize, c.colorValue);
 
   /// Opens Step 2 for [cat]; if it resolves to a choice, closes this sheet too
   /// and propagates that result to the caller.
@@ -436,7 +440,7 @@ class _CategorySheetState extends State<CategorySheet> {
       if (q.isNotEmpty) {
         final nameMatch = cat.name.toLowerCase().contains(q);
         final subMatch = cat.subcategories.any(
-          (s) => s.toLowerCase().contains(q),
+          (s) => s.name.toLowerCase().contains(q),
         );
         if (!nameMatch && !subMatch) continue;
       }
@@ -457,9 +461,10 @@ class _CategorySheetState extends State<CategorySheet> {
       } else {
         // Parent: navigate to Step 2. Highlight when the current selection
         // belongs here, and badge the specific subcategory if one is selected.
-        final selectedSub = cat.subcategories.contains(widget.selected)
-            ? widget.selected
-            : null;
+        final selectedSub =
+            cat.subcategories.any((s) => s.name == widget.selected)
+                ? widget.selected
+                : null;
         final selectionInHere =
             widget.selected == cat.name || selectedSub != null;
         specs.add(
@@ -532,7 +537,11 @@ class SubcategorySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final parentOption = CategoryIcons.resolve(category.name, category.iconKey);
+    final catColor = CategoryGlyphs.categoryVisual(
+      name: category.name,
+      iconKey: category.iconKey,
+      colorValue: category.colorValue,
+    ).color;
     final media = MediaQuery.of(context);
     // Near-full height: from just below the app bar to the bottom, matching the
     // Select Category sheet. Rows stay top-aligned; empty space below the last
@@ -599,15 +608,16 @@ class SubcategorySheet extends StatelessWidget {
                   children: pickerRows([
                     for (final sub in category.subcategories)
                       RowSpec(
-                        label: sub,
-                        leading: Icon(
-                          parentOption.icon,
+                        label: sub.name,
+                        leading: CategoryGlyph(
+                          assetPath:
+                              CategoryGlyphs.subcategoryAssetFor(sub.iconKey),
+                          color: catColor,
                           size: kSubIconSize,
-                          color: parentOption.color.withAlpha(191),
                         ),
-                        isSelected: selected == sub,
-                        onSelect: () =>
-                            Navigator.of(context).pop(CategoryPickValue(sub)),
+                        isSelected: selected == sub.name,
+                        onSelect: () => Navigator.of(context)
+                            .pop(CategoryPickValue(sub.name)),
                       ),
                   ]),
                 ),

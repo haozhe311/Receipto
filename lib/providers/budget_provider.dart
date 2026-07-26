@@ -82,11 +82,13 @@ class BudgetProvider extends ChangeNotifier {
     for (final c in list) {
       final map = c as Map<String, dynamic>;
       final name = map['name'] as String;
-      final subs =
-          (map['subcategories'] as List<dynamic>?)?.cast<String>() ?? const [];
+      // Subcategories are objects {name, iconKey}, but legacy backups stored
+      // them as bare name strings — handle both.
+      final subs = (map['subcategories'] as List<dynamic>?) ?? const [];
       var total = raw[name] ?? 0;
       for (final s in subs) {
-        total += raw[s] ?? 0;
+        final subName = s is String ? s : (s as Map<String, dynamic>)['name'];
+        total += raw[subName] ?? 0;
       }
       out[name] = total;
     }

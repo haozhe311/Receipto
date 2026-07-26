@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/transaction.dart' as model;
+import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/widgets/glass.dart';
 
 /// A single transaction row displayed in the home screen list.
@@ -28,17 +31,9 @@ class TransactionTile extends StatelessWidget {
       symbol: AppConstants.currencySymbol,
     );
     final dateFormat = DateFormat('dd MMM yyyy');
-    final isIncome = transaction.isIncome;
-    final icon = isIncome
-        ? Icons.savings
-        : (AppConstants.categoryIcons[transaction.category] ??
-              Icons.more_horiz);
-    final color = isIncome
-        ? AppTheme.positive
-        : (AppConstants.categoryColors[transaction.category] ??
-              AppTheme.textMuted);
-    // Light tint of the category colour behind the icon (ParkingLah-style).
-    final tint = color.withValues(alpha: 0.14);
+    final visual =
+        context.read<CategoryProvider>().visualForValue(transaction.category);
+    final color = visual.color;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -61,15 +56,11 @@ class TransactionTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              // Category icon container
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: tint,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 22),
+              // Category icon badge (white glyph on the category colour).
+              CategoryIconBadge(
+                assetPath: visual.assetPath,
+                background: color,
+                size: 44,
               ),
               const SizedBox(width: 12),
               // Merchant + date

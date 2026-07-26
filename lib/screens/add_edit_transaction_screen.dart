@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/account.dart';
 import 'package:receipto/models/transaction.dart' as model;
@@ -402,13 +403,24 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     final provider = context.read<CategoryProvider>();
     final cat = provider.byName(value);
     if (cat != null) {
-      return categoryIconWidget(value, cat.iconKey, cat.emoji);
+      return categoryIconWidget(
+          value, cat.iconKey, cat.emoji, 20, cat.colorValue);
     }
+    // A subcategory value: show its own glyph tinted with the parent's colour.
     final parentName = provider.parentOf(value);
     if (parentName != null) {
       final parent = provider.byName(parentName);
-      return categoryIconWidget(
-          parentName, parent?.iconKey, parent?.emoji ?? '');
+      final sub = provider.subcategoryOf(value);
+      final color = CategoryGlyphs.categoryVisual(
+        name: parentName,
+        iconKey: parent?.iconKey,
+        colorValue: parent?.colorValue,
+      ).color;
+      return CategoryGlyph(
+        assetPath: CategoryGlyphs.subcategoryAssetFor(sub?.iconKey),
+        color: color,
+        size: 20,
+      );
     }
     return categoryIconWidget(value, null, '');
   }

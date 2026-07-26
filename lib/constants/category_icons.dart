@@ -74,11 +74,15 @@ class CategoryIcons {
   /// exact icon they already had before icons became user-selectable.
   static const Map<String, String> _builtInKeys = {
     'Food': 'food',
-    'Transport': 'transport',
+    'Transportation': 'transport',
     'Shopping': 'shopping',
+    'Housing': 'home',
     'Entertainment': 'entertainment',
-    'Health': 'health',
-    'Utilities': 'utilities',
+    'Health & Fitness': 'health',
+    'Utilities/Bills': 'utilities',
+    'Education': 'education',
+    'Social/Family': 'gift',
+    'Income': 'savings',
     'Others': 'others',
   };
 

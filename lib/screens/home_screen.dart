@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
-import 'package:receipto/constants/category_icons.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
@@ -381,7 +381,10 @@ class _HomeFilters extends StatelessWidget {
       final cat = catProvider.byName(result.value);
       txProvider.filterByCategory(
         result.value,
-        includeValues: [result.value, if (cat != null) ...cat.subcategories],
+        includeValues: [
+          result.value,
+          if (cat != null) ...cat.subcategories.map((s) => s.name),
+        ],
       );
     } else if (result is CategoryPickAll) {
       txProvider.filterByCategory(null);
@@ -406,14 +409,16 @@ class _HomeFilters extends StatelessWidget {
     }
   }
 
-  /// Active leading icon for the category button (its swatch icon), or null.
+  /// Active leading icon for the category button (its glyph), or null.
   Widget? _categoryLeading(BuildContext context) {
     if (selectedCategory == null) return null;
-    final option = CategoryIcons.resolve(
-      selectedCategory!,
-      context.read<CategoryProvider>().byName(selectedCategory!)?.iconKey,
+    final visual =
+        context.read<CategoryProvider>().visualForValue(selectedCategory!);
+    return CategoryGlyph(
+      assetPath: visual.assetPath,
+      color: visual.color,
+      size: 18,
     );
-    return Icon(option.icon, size: 18, color: option.color);
   }
 
   /// Active leading icon for the account button (its type icon), or null.

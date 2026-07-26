@@ -9,8 +9,9 @@ import 'package:receipto/screens/manage_categories_screen.dart';
 ///
 /// AlertDialog wraps its content in an IntrinsicWidth, which queries children
 /// for intrinsic dimensions. A scrolling viewport (GridView/ListView) throws
-/// when asked for those, so the dialog failed to lay out. The icon swatches
-/// must therefore stay a non-scrolling layout (Wrap).
+/// when asked for those. The dialog side-steps this by giving its content a
+/// fixed-width SizedBox, so IntrinsicWidth resolves without recursing into the
+/// icon/colour grids.
 void main() {
   testWidgets('Add Category dialog renders its content without throwing',
       (tester) async {
@@ -25,11 +26,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Add Category'));
+    // With the full preset list, the button sits below the fold — scroll to it.
+    final addButton = find.text('Add Category');
+    await tester.scrollUntilVisible(addButton, 300);
+    await tester.tap(addButton);
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Category name'), findsOneWidget);
+    expect(find.text('Name'), findsOneWidget);
+    expect(find.text('Icon'), findsWidgets);
+    expect(find.text('Colour'), findsWidgets);
     expect(find.byType(AlertDialog), findsOneWidget);
   });
 }

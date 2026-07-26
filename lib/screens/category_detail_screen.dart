@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:receipto/constants/category_icons.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/models/category_model.dart';
 import 'package:receipto/providers/category_provider.dart';
-import 'package:receipto/widgets/category_icon_grid.dart';
+import 'package:receipto/widgets/category_icon_grid.dart' show DashedBorderPainter;
+import 'package:receipto/widgets/category_pickers.dart';
 
 /// Detail screen for a single category: rename it, change its icon/colour,
 /// manage its subcategories, or delete it.
@@ -19,7 +21,8 @@ class CategoryDetailScreen extends StatefulWidget {
 class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   late String _name; // tracks the current name across renames
   late final TextEditingController _nameController;
-  late String _iconKey;
+  late String? _iconKey;
+  late int _colorValue;
 
   bool get _isProtected => _name == CategoryProvider.protectedName;
 
@@ -29,7 +32,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     _name = widget.categoryName;
     final cat = context.read<CategoryProvider>().byName(_name);
     _nameController = TextEditingController(text: cat?.name ?? _name);
-    _iconKey = cat?.iconKey ?? CategoryIcons.resolve(_name, cat?.iconKey).key;
+    _iconKey = cat?.iconKey;
+    _colorValue = CategoryGlyphs.categoryVisual(
+      name: _name,
+      iconKey: cat?.iconKey,
+      colorValue: cat?.colorValue,
+    ).color.toARGB32();
   }
 
   @override
@@ -73,6 +81,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     context.read<CategoryProvider>().setIcon(_name, key);
   }
 
+  void _selectColor(int colorValue) {
+    setState(() => _colorValue = colorValue);
+    context.read<CategoryProvider>().setColor(_name, colorValue);
+  }
+
   void _confirmDeleteCategory() {
     showDialog<void>(
       context: context,
@@ -106,8 +119,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     showDialog<void>(
       context: context,
       builder: (_) => _AddSubcategoryDialog(
-        onSave: (value) =>
-            context.read<CategoryProvider>().addSubcategory(_name, value),
+        parentColor: Color(_colorValue),
+        onSave: (name, iconKey) => context
+            .read<CategoryProvider>()
+            .addSubcategory(_name, name, iconKey: iconKey),
       ),
     );
   }
@@ -121,8 +136,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     // The category was deleted from under us.
     if (cat == null) return const Scaffold(body: SizedBox.shrink());
 
-    final option = CategoryIcons.resolve(cat.name, _iconKey);
     final subs = cat.subcategories;
+    final color = Color(_colorValue);
 
     return PopScope(
       canPop: false,
@@ -147,7 +162,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             // Icon preview with pencil badge
-            Center(child: _iconPreview(option)),
+            Center(child: _iconPreview(color)),
             const SizedBox(height: 24),
 
             // Name
@@ -165,23 +180,28 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Icon (each swatch is a fixed icon + colour pairing). Editable for
-            // every category except the protected "Others", which stays fixed.
-            Text(
-              'Icon',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 12),
+            // Icon + colour are chosen independently. Editable for every
+            // category except the protected "Others", which stays fixed.
             if (_isProtected)
               Text(
                 '"${CategoryProvider.protectedName}" keeps a fixed icon.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
               )
-            else
-              CategoryIconGrid(
+            else ...[
+              Text('Icon', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 12),
+              CategoryIconPickerGrid(
                 selectedKey: _iconKey,
                 onSelected: _selectIcon,
               ),
+              const SizedBox(height: 24),
+              Text('Colour', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 12),
+              ColorPickerGrid(
+                selectedValue: _colorValue,
+                onSelected: _selectColor,
+              ),
+            ],
             const SizedBox(height: 28),
 
             // Subcategories
@@ -197,7 +217,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 12),
-            for (final sub in subs) _subcategoryRow(sub),
+            for (final sub in subs) _subcategoryRow(sub, color),
             const SizedBox(height: 4),
             _addSubcategoryButton(),
             const SizedBox(height: 24),
@@ -207,24 +227,17 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
-  /// Live preview of the selected swatch. Non-interactive: the pencil badge is
-  /// only a hint that the icon is editable — the single source of selection is
-  /// the inline "Icon" grid below.
-  Widget _iconPreview(CategoryIconOption option) {
+  /// Live preview of the category's icon on its chosen background colour.
+  Widget _iconPreview(Color color) {
     return SizedBox(
       width: 104,
       height: 104,
       child: Stack(
         children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: option.color.withAlpha(38),
-              border: Border.all(color: option.color.withAlpha(120), width: 2),
-            ),
-            child: Icon(option.icon, color: option.color, size: 44),
+          CategoryIconBadge(
+            assetPath: CategoryGlyphs.categoryAssetFor(_iconKey),
+            background: color,
+            size: 96,
           ),
           if (!_isProtected)
             Positioned(
@@ -238,8 +251,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   color: AppTheme.gold,
                   border: Border.all(color: AppTheme.background, width: 2),
                 ),
-                child:
-                    const Icon(Icons.edit, size: 15, color: Color(0xFF1A1A00)),
+                child: const Icon(Icons.edit, size: 15, color: Colors.white),
               ),
             ),
         ],
@@ -247,10 +259,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
-  Widget _subcategoryRow(String sub) {
+  Widget _subcategoryRow(SubcategoryModel sub, Color color) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+      padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
       decoration: BoxDecoration(
         color: AppTheme.glassRowFill,
         borderRadius: BorderRadius.circular(12),
@@ -258,9 +270,15 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       ),
       child: Row(
         children: [
+          CategoryIconBadge(
+            assetPath: CategoryGlyphs.subcategoryAssetFor(sub.iconKey),
+            background: color,
+            size: 34,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              sub,
+              sub.name,
               style: const TextStyle(
                 color: AppTheme.textPrimary,
                 fontSize: 14,
@@ -271,8 +289,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             icon: const Icon(Icons.delete_outline, size: 20),
             color: const Color(0xFFFF6B6B),
             tooltip: 'Delete subcategory',
-            onPressed: () =>
-                context.read<CategoryProvider>().deleteSubcategory(_name, sub),
+            onPressed: () => context
+                .read<CategoryProvider>()
+                .deleteSubcategory(_name, sub.name),
           ),
         ],
       ),
@@ -309,11 +328,14 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 }
 
-/// Simple text-input dialog for a new subcategory name.
+/// Dialog for a new subcategory: a name plus an icon picked from the 45
+/// subcategory glyphs. No colour — subcategories inherit the parent's colour,
+/// shown live in the preview badge.
 class _AddSubcategoryDialog extends StatefulWidget {
-  final ValueChanged<String> onSave;
+  final Color parentColor;
+  final void Function(String name, String? iconKey) onSave;
 
-  const _AddSubcategoryDialog({required this.onSave});
+  const _AddSubcategoryDialog({required this.parentColor, required this.onSave});
 
   @override
   State<_AddSubcategoryDialog> createState() => _AddSubcategoryDialogState();
@@ -321,6 +343,7 @@ class _AddSubcategoryDialog extends StatefulWidget {
 
 class _AddSubcategoryDialogState extends State<_AddSubcategoryDialog> {
   final _controller = TextEditingController();
+  String? _iconKey;
   String? _error;
 
   @override
@@ -336,7 +359,7 @@ class _AddSubcategoryDialogState extends State<_AddSubcategoryDialog> {
       return;
     }
     final navigator = Navigator.of(context);
-    widget.onSave(value);
+    widget.onSave(value, _iconKey);
     navigator.pop();
   }
 
@@ -344,19 +367,52 @@ class _AddSubcategoryDialogState extends State<_AddSubcategoryDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add Subcategory'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(
-          labelText: 'Subcategory name',
-          hintText: 'e.g. Groceries',
-          errorText: _error,
+      contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      content: SizedBox(
+        width: 340,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CategoryIconBadge(
+                  assetPath: CategoryGlyphs.subcategoryAssetFor(_iconKey),
+                  background: widget.parentColor,
+                  size: 44,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      hintText: 'e.g. Groceries',
+                      errorText: _error,
+                    ),
+                    onChanged: (_) {
+                      if (_error != null) setState(() => _error = null);
+                    },
+                    onSubmitted: (_) => _save(),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text('Icon', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                child: SubcategoryIconPickerGrid(
+                  selectedKey: _iconKey,
+                  onSelected: (key) => setState(() => _iconKey = key),
+                ),
+              ),
+            ),
+          ],
         ),
-        onChanged: (_) {
-          if (_error != null) setState(() => _error = null);
-        },
-        onSubmitted: (_) => _save(),
       ),
       actions: [
         TextButton(

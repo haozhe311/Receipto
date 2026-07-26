@@ -161,6 +161,7 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
                 return CategoryChip(
                   category: c.name,
                   iconKey: c.iconKey,
+                  colorValue: c.colorValue,
                   emoji: c.emoji,
                   isSelected: _category == c.name,
                   onTap: () => setState(() => _category = c.name),

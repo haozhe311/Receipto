@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/recurring_transaction.dart';
+import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/recurring_provider.dart';
 import 'package:receipto/screens/add_edit_recurring_screen.dart';
 
@@ -104,12 +106,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
     RecurringProvider provider,
     RecurringTransaction item,
   ) {
-    final color = item.isIncome
-        ? const Color(0xFF4CAF50)
-        : (AppConstants.categoryColors[item.category] ?? Colors.grey);
-    final icon = item.isIncome
-        ? Icons.savings
-        : (AppConstants.categoryIcons[item.category] ?? Icons.more_horiz);
+    final visual =
+        context.read<CategoryProvider>().visualForValue(item.category);
+    final color = visual.color;
 
     return Opacity(
       opacity: item.active ? 1 : 0.5,
@@ -129,15 +128,10 @@ class _RecurringScreenState extends State<RecurringScreen> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppTheme.background,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.glassBorderSoft),
-                ),
-                child: Icon(icon, color: color, size: 20),
+              CategoryIconBadge(
+                assetPath: visual.assetPath,
+                background: color,
+                size: 42,
               ),
               const SizedBox(width: 12),
               Expanded(

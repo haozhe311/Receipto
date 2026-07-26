@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/budget_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
@@ -235,19 +236,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _categoryBar(String category, double amount, double total) {
     final pct = total > 0 ? amount / total : 0.0;
-    final color = AppConstants.categoryColors[category] ?? Colors.grey;
+    final visual = context.read<CategoryProvider>().visualForValue(category);
+    final color = visual.color;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(
-              AppConstants.categoryIcons[category] ?? Icons.more_horiz,
-              size: 15,
-              color: color,
+            CategoryIconBadge(
+              assetPath: visual.assetPath,
+              background: color,
+              size: 26,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 category,
@@ -374,7 +376,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final cat = context.read<CategoryProvider>().byName(category);
     if (cat != null) {
       for (final sub in cat.subcategories) {
-        total += _categorySpending[sub] ?? 0;
+        total += _categorySpending[sub.name] ?? 0;
       }
     }
     return total;

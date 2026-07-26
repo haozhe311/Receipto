@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
+import 'package:receipto/providers/category_provider.dart';
 
 final _fmt = NumberFormat.currency(
   locale: AppConstants.currencyLocale,
@@ -65,8 +68,8 @@ class BudgetProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppConstants.categoryColors[category] ?? Colors.grey;
-    final icon = AppConstants.categoryIcons[category] ?? Icons.more_horiz;
+    final visual = context.read<CategoryProvider>().visualForValue(category);
+    final color = visual.color;
     final over = limit != null && spent > limit!;
     final pct = (limit != null && limit! > 0)
         ? (spent / limit!).clamp(0.0, 1.0)
@@ -88,7 +91,11 @@ class BudgetProgressRow extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 18, color: color),
+                CategoryIconBadge(
+                  assetPath: visual.assetPath,
+                  background: color,
+                  size: 30,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

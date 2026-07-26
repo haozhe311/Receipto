@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:receipto/constants/category_icons.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 
 /// A selectable chip representing a transaction category.
 ///
-/// Shows the category's icon swatch, resolved from [iconKey] (or the built-in
-/// match on [category]). Legacy categories saved before icon swatches existed
-/// — no [iconKey] and not built-in — fall back to displaying [emoji].
+/// Shows the category's SVG glyph, resolved from [iconKey] and tinted with the
+/// category's colour (or accent when selected).
 ///
-/// Used in the home screen filter bar and in the add/edit category selector.
+/// Used in the add/edit category selector.
 class CategoryChip extends StatelessWidget {
   final String category;
   final bool isSelected;
   final VoidCallback onTap;
 
-  /// Key of the category's icon swatch, when it has one.
+  /// Key of the category's icon glyph, when it has one.
   final String? iconKey;
 
-  /// Legacy emoji, shown only when no icon swatch can be resolved.
+  /// ARGB of the category's chosen colour (null falls back to a preset).
+  final int? colorValue;
+
+  /// Legacy emoji. Retained for API compatibility; no longer displayed.
   final String emoji;
 
   const CategoryChip({
@@ -26,15 +28,17 @@ class CategoryChip extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.iconKey,
+    this.colorValue,
     this.emoji = '',
   });
 
   @override
   Widget build(BuildContext context) {
-    final option = CategoryIcons.resolve(category, iconKey);
-    final hasSwatch =
-        iconKey != null || CategoryIcons.builtInKeyFor(category) != null;
-    final isCustom = !hasSwatch;
+    final visual = CategoryGlyphs.categoryVisual(
+      name: category,
+      iconKey: iconKey,
+      colorValue: colorValue,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -54,18 +58,11 @@ class CategoryChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon swatch; legacy categories without one show their emoji.
-              if (isCustom && emoji.isNotEmpty)
-                Text(
-                  emoji,
-                  style: const TextStyle(fontSize: 14, height: 1),
-                )
-              else
-                Icon(
-                  option.icon,
-                  size: 15,
-                  color: isSelected ? AppTheme.gold : option.color,
-                ),
+              CategoryGlyph(
+                assetPath: visual.assetPath,
+                color: isSelected ? AppTheme.gold : visual.color,
+                size: 15,
+              ),
               const SizedBox(width: 5),
               Text(
                 category,

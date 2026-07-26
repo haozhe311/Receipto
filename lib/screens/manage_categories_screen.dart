@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:receipto/constants/category_icons.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/category_model.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/screens/category_detail_screen.dart';
-import 'package:receipto/widgets/category_icon_grid.dart';
+import 'package:receipto/widgets/category_pickers.dart';
 
 /// Lists categories and opens each one's detail screen.
 ///
@@ -66,13 +66,14 @@ class ManageCategoriesScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (_) => _AddCategoryDialog(
-        onSave: (name, iconKey) => provider.addCategory(name, iconKey),
+        onSave: (name, iconKey, colorValue) =>
+            provider.addCategory(name, iconKey, colorValue: colorValue),
       ),
     );
   }
 }
 
-/// A single category row: icon, name, subcategory count, and a chevron.
+/// A single category row: icon badge, name, subcategory count, and a chevron.
 /// The protected "Others" category shows a lock and is not tappable.
 class _CategoryRow extends StatelessWidget {
   final CategoryModel category;
@@ -81,7 +82,11 @@ class _CategoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final option = CategoryIcons.resolve(category.name, category.iconKey);
+    final visual = CategoryGlyphs.categoryVisual(
+      name: category.name,
+      iconKey: category.iconKey,
+      colorValue: category.colorValue,
+    );
     final isProtected = category.name == CategoryProvider.protectedName;
     final count = category.subcategories.length;
 
@@ -99,14 +104,10 @@ class _CategoryRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: option.color.withAlpha(38),
-              ),
-              child: Icon(option.icon, color: option.color, size: 19),
+            CategoryIconBadge(
+              assetPath: visual.assetPath,
+              background: visual.color,
+              size: 38,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -149,9 +150,12 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-/// Dialog for creating a category: name + an icon/colour swatch.
+/// Dialog for creating a category: a name, one of 11 icons, and one of 20
+/// background colours. Icon and colour are chosen independently; a live badge
+/// previews the combination. An Icon/Colour segmented toggle keeps the sheet
+/// compact instead of stacking two long grids.
 class _AddCategoryDialog extends StatefulWidget {
-  final void Function(String name, String iconKey) onSave;
+  final void Function(String name, String iconKey, int colorValue) onSave;
 
   const _AddCategoryDialog({required this.onSave});
 
@@ -161,7 +165,9 @@ class _AddCategoryDialog extends StatefulWidget {
 
 class _AddCategoryDialogState extends State<_AddCategoryDialog> {
   final _nameController = TextEditingController();
-  String _iconKey = CategoryIcons.presets.first.key;
+  String _iconKey = CategoryGlyphs.categoryKeys.first;
+  int _colorValue = CategoryGlyphs.palette[10].toARGB32(); // blue
+  int _tab = 0; // 0 = icon, 1 = colour
   String? _error;
 
   @override
@@ -177,7 +183,7 @@ class _AddCategoryDialogState extends State<_AddCategoryDialog> {
       return;
     }
     final navigator = Navigator.of(context);
-    widget.onSave(name, _iconKey);
+    widget.onSave(name, _iconKey, _colorValue);
     navigator.pop();
   }
 
@@ -185,32 +191,64 @@ class _AddCategoryDialogState extends State<_AddCategoryDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add Category'),
-      content: SingleChildScrollView(
+      contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      content: SizedBox(
+        width: 340,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _nameController,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(
-                labelText: 'Category name',
-                hintText: 'e.g. Groceries',
-                errorText: _error,
-              ),
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
+            // Live preview badge + name field.
+            Row(
+              children: [
+                CategoryIconBadge(
+                  assetPath: CategoryGlyphs.categoryAssetFor(_iconKey),
+                  background: Color(_colorValue),
+                  size: 44,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _nameController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      hintText: 'e.g. Groceries',
+                      errorText: _error,
+                    ),
+                    onChanged: (_) {
+                      if (_error != null) setState(() => _error = null);
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
-            Text('Icon', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: 280,
-              child: CategoryIconGrid(
-                selectedKey: _iconKey,
-                onSelected: (key) => setState(() => _iconKey = key),
+
+            // Icon / Colour segmented toggle.
+            SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 0, label: Text('Icon')),
+                ButtonSegment(value: 1, label: Text('Colour')),
+              ],
+              selected: {_tab},
+              onSelectionChanged: (s) => setState(() => _tab = s.first),
+              showSelectedIcon: false,
+            ),
+            const SizedBox(height: 16),
+
+            Flexible(
+              child: SingleChildScrollView(
+                child: _tab == 0
+                    ? CategoryIconPickerGrid(
+                        selectedKey: _iconKey,
+                        onSelected: (key) => setState(() => _iconKey = key),
+                      )
+                    : ColorPickerGrid(
+                        selectedValue: _colorValue,
+                        onSelected: (v) => setState(() => _colorValue = v),
+                      ),
               ),
             ),
           ],
