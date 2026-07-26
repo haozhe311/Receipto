@@ -352,6 +352,17 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     final aiProvider = settings.aiProvider;
     final groqModel = settings.groqModel;
 
+    // Valid category values the receipt can be classified into: each category's
+    // subcategory names, or the category name itself when it has none.
+    final categoryProvider = context.read<CategoryProvider>();
+    final categoryOptions = <String>[
+      for (final c in categoryProvider.categories)
+        if (c.subcategories.isEmpty)
+          c.name
+        else
+          ...c.subcategories.map((s) => s.name),
+    ];
+
     final picked = await _imagePicker.pickImage(
       source: source,
       maxWidth: 1920,
@@ -371,6 +382,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
           apiKey: apiKey,
           provider: aiProvider,
           groqModel: groqModel,
+          categoryOptions: categoryOptions,
         );
         if (ai != null) {
           data = ai;
@@ -386,6 +398,12 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
           _merchantController.text = data.merchant!;
         }
         if (data.date != null) _selectedDate = data.date!;
+        // Auto-select the classified category/subcategory when it's a valid,
+        // selectable value.
+        if (data.category != null &&
+            categoryProvider.isSelectable(data.category!)) {
+          _selectedCategory = data.category!;
+        }
         _scannedViaOcr = true;
         _isScanning = false;
       });

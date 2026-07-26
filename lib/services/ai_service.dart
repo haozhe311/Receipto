@@ -79,20 +79,28 @@ class AiService {
     required String apiKey,
     required String provider,
     String groqModel = 'llama-3.1-8b-instant',
+    List<String> categoryOptions = const [],
   }) async {
-    const system =
+    final categoryRule = categoryOptions.isEmpty
+        ? '"category" is always null. '
+        : '"category" MUST be exactly one of this list (or null if none fits): '
+            '${categoryOptions.join(', ')}. Pick the best fit for what was '
+            'bought (e.g. a petrol station → Fuel, a restaurant meal → the '
+            'closest of Breakfast/Lunch/Dinner, a supermarket → Groceries). ';
+    final system =
         'You extract structured data from Malaysian receipt OCR text. '
         'Reply with ONLY minified JSON, no markdown fences and no commentary, '
         'of exactly this shape: '
         '{"merchant":string|null,"date":"YYYY-MM-DD"|null,"total":number|null,'
         '"service_charge_percent":number,"sst_percent":number,'
+        '"category":string|null,'
         '"items":[{"name":string,"unit_price":number,"qty":number}]}. '
         'Guidance: merchant is the shop name near the top. total is the final '
         'amount payable (grand/nett total). An item name and its price are '
         'often on separate lines — pair them; unit_price is the per-unit price '
         'and qty its quantity. Exclude non-item lines (barcodes, subtotals, '
         'totals, tax, rounding, payment, points, card, phone). Use 0 for a '
-        'missing percentage. All numbers are plain, without "RM".';
+        'missing percentage. All numbers are plain, without "RM". $categoryRule';
     final user = 'Receipt OCR text:\n$rawText';
 
     String raw;
@@ -129,10 +137,14 @@ class AiService {
       return null;
     }
 
-    return _receiptFromResponse(raw, rawText);
+    return _receiptFromResponse(raw, rawText, categoryOptions);
   }
 
-  static ReceiptData? _receiptFromResponse(String response, String rawText) {
+  static ReceiptData? _receiptFromResponse(
+    String response,
+    String rawText, [
+    List<String> categoryOptions = const [],
+  ]) {
     // Isolate the JSON object even if the model wrapped it in prose/fences.
     final start = response.indexOf('{');
     final end = response.lastIndexOf('}');
@@ -161,6 +173,20 @@ class AiService {
       final merchant = map['merchant']?.toString().trim();
       final dateStr = map['date']?.toString();
 
+      // Accept the model's category only if it matches an allowed option
+      // (case-insensitive); otherwise fall back to the keyword guesser.
+      final rawCategory = map['category']?.toString().trim();
+      String? category;
+      if (rawCategory != null && rawCategory.isNotEmpty) {
+        for (final opt in categoryOptions) {
+          if (opt.toLowerCase() == rawCategory.toLowerCase()) {
+            category = opt;
+            break;
+          }
+        }
+      }
+      category ??= OcrService.guessCategory(merchant, items: items);
+
       return ReceiptData(
         merchant: (merchant != null && merchant.isNotEmpty) ? merchant : null,
         amount: asNum(map['total']),
@@ -170,6 +196,7 @@ class AiService {
         items: items,
         serviceRate: asNum(map['service_charge_percent']),
         taxRate: asNum(map['sst_percent']),
+        category: category,
         rawText: rawText,
         merchantConfidence: OcrConfidence.high,
         amountConfidence: OcrConfidence.high,
