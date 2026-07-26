@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:receipto/constants/theme.dart';
 
@@ -143,6 +145,35 @@ class GlassSheetBackground extends StatelessWidget {
           ],
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+/// Frosted translucent bottom-sheet background matching the floating nav pill:
+/// a real backdrop blur of the content behind plus a translucent white fill and
+/// a hairline top highlight. Pair with `backgroundColor: Colors.transparent`
+/// (and ideally a light `barrierColor`) on `showModalBottomSheet`.
+class FrostedSheetBackground extends StatelessWidget {
+  final Widget child;
+
+  const FrostedSheetBackground({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            color: AppTheme.navGlassFill,
+            border: Border(
+              top: BorderSide(color: Color(0x99FFFFFF), width: 1),
+            ),
+          ),
+          child: child,
+        ),
       ),
     );
   }

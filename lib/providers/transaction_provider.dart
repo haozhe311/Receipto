@@ -92,6 +92,20 @@ class TransactionProvider extends ChangeNotifier {
     loadTransactions();
   }
 
+  /// Jumps directly to [month] (any day within it), clamped so the user cannot
+  /// select a future month. Used by the month/year picker.
+  void goToMonth(DateTime month) {
+    final candidate = _firstOfMonth(month);
+    final now = _firstOfMonth(DateTime.now());
+    if (candidate.isAfter(now)) return;
+    if (candidate == _selectedMonth) return;
+    _selectedMonth = candidate;
+    _selectedCategory = null;
+    _selectedCategoryValues = null;
+    _selectedAccount = null;
+    loadTransactions();
+  }
+
   /// Loads the first page of transactions for the selected month
   /// with the current category filter applied.
   Future<void> loadTransactions() async {

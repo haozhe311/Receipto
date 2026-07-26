@@ -94,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       isCurrentMonth: provider.isCurrentMonth,
                       onPreviousMonth: () => provider.navigateMonth(-1),
                       onNextMonth: () => provider.navigateMonth(1),
+                      onSelectMonth: (month) => provider.goToMonth(month),
                       selectedCategory: provider.selectedCategory,
                       selectedAccount: provider.selectedAccount,
                     ),

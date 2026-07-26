@@ -63,22 +63,23 @@ class TransactionTile extends StatelessWidget {
                 size: 44,
               ),
               const SizedBox(width: 12),
-              // Merchant + date
+              // Subcategory (primary) + merchant + date + account.
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Subcategory — the prominent line (larger than the rest).
                     Row(
                       children: [
                         Expanded(
                           child: Text(
-                            transaction.merchant,
+                            transaction.category,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
                             ),
                           ),
                         ),
@@ -93,12 +94,15 @@ class TransactionTile extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
-                      dateFormat.format(transaction.date),
+                      transaction.merchant,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppTheme.textMuted,
-                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -106,24 +110,37 @@ class TransactionTile extends StatelessWidget {
                       transaction.paymentMethod,
                       style: const TextStyle(
                         color: AppTheme.onGlassFaint,
-                        fontSize: 10,
+                        fontSize: 11,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              // Amount — income shows green with a leading '+'.
-              Text(
-                '${transaction.isIncome ? '+' : ''}'
-                '${currencyFormat.format(transaction.amount)}',
-                style: TextStyle(
-                  color: transaction.isIncome
-                      ? AppTheme.positive
-                      : AppTheme.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
+              // Amount (signed + coloured) with the date beneath it.
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${transaction.isIncome ? '+' : '-'}'
+                    '${currencyFormat.format(transaction.amount)}',
+                    style: TextStyle(
+                      color: transaction.isIncome
+                          ? AppTheme.positive
+                          : AppTheme.danger,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateFormat.format(transaction.date),
+                    style: const TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

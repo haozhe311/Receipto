@@ -16,6 +16,7 @@ import 'package:receipto/screens/split_screen.dart';
 import 'package:receipto/services/ai_service.dart';
 import 'package:receipto/services/ocr_service.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
+import 'package:receipto/widgets/glass.dart';
 
 /// Screen for manually adding a new transaction or editing an existing one.
 ///
@@ -291,10 +292,22 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   void _showScanSourceSheet() {
     showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder: (ctx) => FrostedSheetBackground(
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
@@ -322,6 +335,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ),
             const SizedBox(height: 8),
           ],
+          ),
         ),
       ),
     );
