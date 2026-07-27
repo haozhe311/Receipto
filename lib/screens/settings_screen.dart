@@ -10,7 +10,6 @@ import 'package:receipto/screens/budgets_screen.dart';
 import 'package:receipto/screens/goals_screen.dart';
 import 'package:receipto/screens/manage_categories_screen.dart';
 import 'package:receipto/screens/recurring_screen.dart';
-import 'package:receipto/screens/subscriptions_screen.dart';
 import 'package:receipto/screens/wallets_screen.dart';
 
 /// Settings screen.
@@ -101,17 +100,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.push(
                   context,
                   AppPageRoute(builder: (_) => const RecurringScreen()),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _NavTile(
-                icon: Icons.subscriptions_outlined,
-                title: 'Subscriptions',
-                onTap: () => Navigator.push(
-                  context,
-                  AppPageRoute(
-                    builder: (_) => const SubscriptionsScreen(),
-                  ),
                 ),
               ),
               const SizedBox(height: 8),

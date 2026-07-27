@@ -139,27 +139,15 @@ class _RecurringScreenState extends State<RecurringScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            item.merchant,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                        if (item.isSubscription)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: Icon(Icons.subscriptions,
-                                size: 13, color: AppTheme.gold.withAlpha(200)),
-                          ),
-                      ],
+                    Text(
+                      item.merchant,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     Text(

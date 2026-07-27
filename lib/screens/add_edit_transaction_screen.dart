@@ -39,6 +39,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   late final TextEditingController _merchantController;
   late final TextEditingController _noteController;
   late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
   late String _selectedCategory;
   late String _selectedPaymentMethod;
   late String _type; // 'expense' or 'income'
@@ -61,6 +62,9 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     _merchantController = TextEditingController(text: t?.merchant ?? '');
     _noteController = TextEditingController(text: t?.note ?? '');
     _selectedDate = t?.date ?? DateTime.now();
+    // Time of day lives in createdAt (the date column is date-only). Default to
+    // the record's timestamp, or now for a new transaction.
+    _selectedTime = TimeOfDay.fromDateTime(t?.createdAt ?? DateTime.now());
     _type = t?.type ?? 'expense';
     _scannedViaOcr = t?.isOcr ?? false;
 
@@ -186,12 +190,27 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Date picker
-            _DatePickerTile(
-              selectedDate: _selectedDate,
-              onDateChanged: (date) {
-                setState(() => _selectedDate = date);
-              },
+            // Date + time pickers, side by side.
+            Row(
+              children: [
+                Expanded(
+                  child: _DatePickerTile(
+                    selectedDate: _selectedDate,
+                    onDateChanged: (date) {
+                      setState(() => _selectedDate = date);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TimePickerTile(
+                    selectedTime: _selectedTime,
+                    onTimeChanged: (time) {
+                      setState(() => _selectedTime = time);
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -260,6 +279,16 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     final merchant = _merchantController.text.trim();
     final note = _noteController.text.trim();
 
+    // The chosen date + time. The date column stays date-only (for month/range
+    // filters); the full timestamp — carrying the time — is stored in createdAt.
+    final dateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
     final transaction = model.Transaction(
       id: widget.transaction?.id,
       date: _selectedDate,
@@ -270,7 +299,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
       type: _type,
       isOcr: _scannedViaOcr,
       note: note.isNotEmpty ? note : null,
-      createdAt: widget.transaction?.createdAt,
+      createdAt: dateTime,
     );
 
     final provider = context.read<TransactionProvider>();
@@ -599,6 +628,40 @@ class _DatePickerTile extends StatelessWidget {
         ),
         child: Text(
           DateFormat('dd MMM yyyy').format(selectedDate),
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
+}
+
+class _TimePickerTile extends StatelessWidget {
+  final TimeOfDay selectedTime;
+  final ValueChanged<TimeOfDay> onTimeChanged;
+
+  const _TimePickerTile({
+    required this.selectedTime,
+    required this.onTimeChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: selectedTime,
+        );
+        if (picked != null) onTimeChanged(picked);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Time',
+          suffixIcon: Icon(Icons.access_time),
+        ),
+        child: Text(
+          selectedTime.format(context),
           style: Theme.of(context).textTheme.bodyLarge,
         ),
       ),

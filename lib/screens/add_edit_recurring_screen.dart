@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:receipto/constants/theme.dart';
+import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/models/recurring_transaction.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/recurring_provider.dart';
-import 'package:receipto/widgets/category_chip.dart';
+import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/payment_method_chip.dart';
 
 /// Full-screen form for creating or editing a recurring transaction.
 /// Used by both the Recurring and Subscriptions screens.
 class AddEditRecurringScreen extends StatefulWidget {
   final RecurringTransaction? existing;
-  final bool defaultSubscription;
 
   const AddEditRecurringScreen({
     super.key,
     this.existing,
-    this.defaultSubscription = false,
   });
 
   @override
@@ -35,7 +33,6 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
   late String _paymentMethod;
   late String _type;
   late String _frequency;
-  late bool _isSubscription;
 
   bool get _isEditing => widget.existing != null;
   bool get _isIncome => _type == 'income';
@@ -52,12 +49,15 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
     _nextDate = r?.nextDate ?? DateTime.now().add(const Duration(days: 1));
     _type = r?.type ?? 'expense';
     _frequency = r?.frequency ?? 'monthly';
-    _isSubscription = r?.isSubscription ?? widget.defaultSubscription;
 
-    final knownCats = context.read<CategoryProvider>().categoryNames;
-    _category = (r != null && knownCats.contains(r.category))
+    // Keep the stored value if it's still a valid category OR subcategory;
+    // otherwise fall back to the first category.
+    final categoryProvider = context.read<CategoryProvider>();
+    _category = (r != null && categoryProvider.isSelectable(r.category))
         ? r.category
-        : (knownCats.isNotEmpty ? knownCats.first : 'Others');
+        : (categoryProvider.categoryNames.isNotEmpty
+            ? categoryProvider.categoryNames.first
+            : 'Others');
 
     final accountNames = context.read<AccountProvider>().accountNames;
     _paymentMethod = (r != null && accountNames.contains(r.paymentMethod))
@@ -152,21 +152,12 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Category
+            // Category — full picker with subcategories.
             Text('Category', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
-            Wrap(
-              runSpacing: 8,
-              children: context.watch<CategoryProvider>().categories.map((c) {
-                return CategoryChip(
-                  category: c.name,
-                  iconKey: c.iconKey,
-                  colorValue: c.colorValue,
-                  emoji: c.emoji,
-                  isSelected: _category == c.name,
-                  onTap: () => setState(() => _category = c.name),
-                );
-              }).toList(),
+            _CategorySelectTile(
+              value: _category,
+              onTap: _openCategorySheet,
             ),
             const SizedBox(height: 16),
 
@@ -184,26 +175,6 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
                   onTap: () => setState(() => _paymentMethod = a.name),
                 );
               }).toList(),
-            ),
-            const SizedBox(height: 16),
-
-            // Subscription toggle
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.glassRowFill,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.glassBorderSoft),
-              ),
-              child: SwitchListTile(
-                value: _isSubscription,
-                onChanged: (v) => setState(() => _isSubscription = v),
-                activeColor: AppTheme.gold,
-                title: const Text('Track as subscription'),
-                subtitle: Text(
-                  'Show in the Subscriptions screen',
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                ),
-              ),
             ),
             const SizedBox(height: 16),
 
@@ -230,6 +201,21 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
     );
   }
 
+  Future<void> _openCategorySheet() async {
+    final result = await showModalBottomSheet<CategoryPick>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CategorySheet(
+        categories: context.read<CategoryProvider>().categories,
+        selected: _category,
+        showManage: false,
+      ),
+    );
+    if (result is CategoryPickValue && mounted) {
+      setState(() => _category = result.value);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final note = _noteController.text.trim();
@@ -243,7 +229,7 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
       type: _type,
       frequency: _frequency,
       nextDate: _nextDate,
-      isSubscription: _isSubscription,
+      isSubscription: widget.existing?.isSubscription ?? false,
       note: note.isNotEmpty ? note : null,
       active: widget.existing?.active ?? true,
       createdAt: widget.existing?.createdAt,
@@ -322,6 +308,40 @@ class _DateTile extends StatelessWidget {
         child: Text(
           DateFormat('dd MMM yyyy').format(date),
           style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
+}
+
+/// Selector row showing the chosen category/subcategory (glyph + name) that
+/// opens the full [CategorySheet] on tap.
+class _CategorySelectTile extends StatelessWidget {
+  final String value;
+  final VoidCallback onTap;
+
+  const _CategorySelectTile({required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = context.watch<CategoryProvider>().visualForValue(value);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          suffixIcon: Icon(Icons.chevron_right),
+        ),
+        child: Row(
+          children: [
+            CategoryGlyph(
+              assetPath: visual.assetPath,
+              color: visual.color,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Text(value, style: Theme.of(context).textTheme.bodyLarge),
+          ],
         ),
       ),
     );

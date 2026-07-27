@@ -140,6 +140,14 @@ class TransactionTile extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
+                  const SizedBox(height: 1),
+                  Text(
+                    DateFormat('h:mm a').format(transaction.createdAt),
+                    style: const TextStyle(
+                      color: AppTheme.onGlassFaint,
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
               ),
             ],
