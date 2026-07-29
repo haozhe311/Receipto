@@ -7,6 +7,7 @@ import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/budget_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/screens/budgets_screen.dart';
+import 'package:receipto/screens/category_transactions_screen.dart';
 import 'package:receipto/services/database_helper.dart';
 import 'package:receipto/services/insight_service.dart';
 import 'package:receipto/widgets/app_page_route.dart';
@@ -34,6 +35,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Map<String, double> _categorySpending = {};
   List<Map<String, dynamic>> _trend = [];
   List<Insight> _insights = [];
+
+  /// Top-level categories currently expanded to show their subcategory ranking.
+  final Set<String> _expandedCategories = {};
 
   final _fmt = NumberFormat.currency(
     locale: AppConstants.currencyLocale,
@@ -70,6 +74,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       _insights = results[4] as List<Insight>;
       _loading = false;
     });
+  }
+
+  /// Opens the ranked list of transactions for [value] (a subcategory) in the
+  /// selected month, then refreshes analytics on return in case of edits.
+  Future<void> _openSubcategory(String value) async {
+    await Navigator.push(
+      context,
+      AppPageRoute(
+        builder: (_) =>
+            CategoryTransactionsScreen(value: value, month: _month),
+      ),
+    );
+    if (mounted) _load();
   }
 
   void _changeMonth(int delta) {
@@ -216,7 +233,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   // ── Category breakdown ──────────────────────────────────────────────────────
 
   Widget _categoryBreakdown() {
-    final entries = _categorySpending.entries.toList()
+    final provider = context.read<CategoryProvider>();
+
+    // Roll each stored value (usually a subcategory) up into its parent
+    // category, keeping the per-subcategory breakdown for the drill-down.
+    final catTotals = <String, double>{};
+    final catSubs = <String, List<MapEntry<String, double>>>{};
+    _categorySpending.forEach((value, amount) {
+      if (amount <= 0) return;
+      final parent = provider.parentOf(value);
+      final top =
+          parent ?? (provider.byName(value) != null ? value : 'Others');
+      catTotals[top] = (catTotals[top] ?? 0) + amount;
+      (catSubs[top] ??= []).add(MapEntry(value, amount));
+    });
+
+    final entries = catTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = entries.fold<double>(0, (sum, e) => sum + e.value);
 
@@ -227,7 +259,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           : Column(
               children: [
                 for (final e in entries) ...[
-                  _categoryBar(e.key, e.value, total),
+                  _categoryBar(e.key, e.value, total, catSubs[e.key] ?? const []),
                   const SizedBox(height: 12),
                 ],
               ],
@@ -235,28 +267,144 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _categoryBar(String category, double amount, double total) {
+  Widget _categoryBar(
+    String category,
+    double amount,
+    double total,
+    List<MapEntry<String, double>> subs,
+  ) {
     final pct = total > 0 ? amount / total : 0.0;
     final visual = context.read<CategoryProvider>().visualForValue(category);
     final color = visual.color;
+
+    // Sub-entries that are genuinely a subcategory (not spending logged on the
+    // category itself) — these are what the drill-down ranks.
+    final breakdown = subs.where((e) => e.key != category).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final canExpand = breakdown.isNotEmpty;
+    final expanded = _expandedCategories.contains(category);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: canExpand
+              ? () => setState(() {
+                    if (expanded) {
+                      _expandedCategories.remove(category);
+                    } else {
+                      _expandedCategories.add(category);
+                    }
+                  })
+              : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CategoryIconBadge(
+                    assetPath: visual.assetPath,
+                    background: color,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      category,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  if (canExpand)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(
+                        expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                  Text(
+                    _fmt.format(amount),
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${(pct * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct.clamp(0.0, 1.0),
+                  minHeight: 7,
+                  backgroundColor: AppTheme.border,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Drill-down: this category's subcategories, ranked.
+        if (expanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 36, top: 10),
+            child: Column(
+              children: [
+                for (final s in breakdown) ...[
+                  InkWell(
+                    onTap: () => _openSubcategory(s.key),
+                    borderRadius: BorderRadius.circular(8),
+                    child: _subcategoryBar(s.key, s.value, amount, color),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _subcategoryBar(
+    String subcategory,
+    double amount,
+    double categoryTotal,
+    Color color,
+  ) {
+    final pct = categoryTotal > 0 ? amount / categoryTotal : 0.0;
+    final visual = context.read<CategoryProvider>().visualForValue(subcategory);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            CategoryIconBadge(
+            CategoryGlyph(
               assetPath: visual.assetPath,
-              background: color,
-              size: 26,
+              color: color,
+              size: 16,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                category,
+                subcategory,
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
             ),
@@ -264,8 +412,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               _fmt.format(amount),
               style: const TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: 6),
@@ -273,19 +421,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               '${(pct * 100).toStringAsFixed(0)}%',
               style: const TextStyle(
                 color: AppTheme.textMuted,
-                fontSize: 11,
+                fontSize: 10,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(3),
           child: LinearProgressIndicator(
             value: pct.clamp(0.0, 1.0),
-            minHeight: 7,
+            minHeight: 5,
             backgroundColor: AppTheme.border,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+            valueColor: AlwaysStoppedAnimation<Color>(color.withValues(alpha: 0.7)),
           ),
         ),
       ],

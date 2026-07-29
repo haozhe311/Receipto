@@ -92,7 +92,9 @@ class AppPageRoute<T> extends PageRoute<T> {
           child: _BackGestureDetector<T>(
             enabledCallback: () => _isPopGestureEnabled,
             onStartPopGesture: _startPopGesture,
-            child: child,
+            // Cache the page as a layer so the scale/fade composites a raster
+            // instead of repainting the (possibly heavy) tree every frame.
+            child: RepaintBoundary(child: child),
           ),
         ),
       ),
