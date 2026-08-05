@@ -49,3 +49,4 @@ app.*.map.json
 .agents/
 .github/skills/
 skills-lock.json
+CLAUDE.md
