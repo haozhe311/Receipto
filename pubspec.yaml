@@ -12,7 +12,6 @@ dependencies:
   sqflite: ^2.3.3
   path: ^1.9.0
   image_picker: ^1.1.2
-  google_mlkit_text_recognition: ^0.13.1
   google_sign_in: ^6.2.1
   googleapis: ^13.2.0
   http: ^1.2.1

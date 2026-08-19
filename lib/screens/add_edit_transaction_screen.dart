@@ -14,7 +14,6 @@ import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/manage_categories_screen.dart';
 import 'package:receipto/screens/split_screen.dart';
 import 'package:receipto/services/ai_service.dart';
-import 'package:receipto/services/ocr_service.dart';
 import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
 import 'package:receipto/widgets/glass.dart';
@@ -44,7 +43,6 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   late String _selectedPaymentMethod;
   late String _type; // 'expense' or 'income'
 
-  final _ocrService = OcrService();
   final _imagePicker = ImagePicker();
   bool _isScanning = false;
   late bool _scannedViaOcr;
@@ -371,15 +369,15 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     );
   }
 
-  /// Captures/picks an image, runs OCR, and fills the form fields. When an AI
-  /// key is configured, the OCR text is parsed by the LLM (much more accurate
-  /// across layouts); otherwise it falls back to the on-device regex parser.
+  /// Captures/picks a receipt or bank-transfer-screenshot image and sends it
+  /// directly to Groq's vision model to fill the form fields. Requires a Groq
+  /// API key regardless of the app's currently selected AI provider — vision
+  /// scanning always uses Groq (there is no on-device OCR fallback).
   Future<void> _scanReceipt(ImageSource source) async {
-    // Read AI settings before any await gap.
+    // Read AI settings before any await gap. Scanning always uses Groq,
+    // independent of the currently selected chat provider.
     final settings = context.read<SettingsProvider>();
-    final apiKey = settings.hasApiKey ? settings.apiKey : null;
-    final aiProvider = settings.aiProvider;
-    final groqModel = settings.groqModel;
+    final groqApiKey = settings.activeKeyFor('groq');
 
     // Valid category values the receipt can be classified into: each category's
     // subcategory names, or the category name itself when it has none.
@@ -400,23 +398,31 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
     );
     if (picked == null) return;
 
+    if (groqApiKey == null || groqApiKey.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Add a Groq API key in Settings to scan receipts.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isScanning = true);
     try {
-      final rawText = await _ocrService.recognizeText(picked.path);
-      ReceiptData data = _ocrService.parseReceipt(rawText);
-      var usedAi = false;
-      if (apiKey != null) {
-        final ai = await AiService.parseReceipt(
-          rawText: rawText,
-          apiKey: apiKey,
-          provider: aiProvider,
-          groqModel: groqModel,
-          categoryOptions: categoryOptions,
+      final imageBytes = await picked.readAsBytes();
+      final data = await AiService.parseReceiptFromImage(
+        imageBytes: imageBytes,
+        apiKey: groqApiKey,
+        categoryOptions: categoryOptions,
+      );
+      if (data == null) {
+        throw AiException(
+          'The image could not be read. Try a clearer photo.',
         );
-        if (ai != null) {
-          data = ai;
-          usedAi = true;
-        }
       }
       if (!mounted) return;
       setState(() {
@@ -437,11 +443,10 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
         _isScanning = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(usedAi
-              ? 'Receipt read by AI — review and correct the details.'
-              : 'Receipt scanned — review and correct the details.'),
-          backgroundColor: const Color(0xFF2E7D32),
+        const SnackBar(
+          content:
+              Text('Receipt read by AI — review and correct the details.'),
+          backgroundColor: Color(0xFF2E7D32),
         ),
       );
     } catch (e) {

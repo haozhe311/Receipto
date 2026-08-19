@@ -6,7 +6,6 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/services/ai_service.dart';
-import 'package:receipto/services/ocr_service.dart';
 
 /// Returned to the caller when the user confirms their share.
 class SplitResult {
@@ -22,7 +21,7 @@ class SplitResult {
 /// Scan a receipt → its items are listed → set how many of each you had →
 /// the app adds the service charge and SST percentages to your items to give
 /// your share. Working from the printed percentages keeps the maths stable
-/// and transparent regardless of how well OCR read the quantities.
+/// and transparent regardless of how well the scan read the quantities.
 class SplitScreen extends StatefulWidget {
   const SplitScreen({super.key});
 
@@ -51,7 +50,6 @@ class _ItemRow {
 }
 
 class _SplitScreenState extends State<SplitScreen> {
-  final _ocrService = OcrService();
   final _imagePicker = ImagePicker();
   final _serviceController = TextEditingController(text: '10');
   final _sstController = TextEditingController(text: '6');
@@ -128,11 +126,10 @@ class _SplitScreenState extends State<SplitScreen> {
   }
 
   Future<void> _scan(ImageSource source) async {
-    // Read AI settings before any await gap.
+    // Scanning always uses Groq's vision model, independent of the currently
+    // selected chat provider.
     final settings = context.read<SettingsProvider>();
-    final apiKey = settings.hasApiKey ? settings.apiKey : null;
-    final aiProvider = settings.aiProvider;
-    final groqModel = settings.groqModel;
+    final groqApiKey = settings.activeKeyFor('groq');
 
     final picked = await _imagePicker.pickImage(
       source: source,
@@ -142,18 +139,28 @@ class _SplitScreenState extends State<SplitScreen> {
     );
     if (picked == null) return;
 
+    if (groqApiKey == null || groqApiKey.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add a Groq API key in Settings to scan receipts.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isScanning = true);
     try {
-      final rawText = await _ocrService.recognizeText(picked.path);
-      ReceiptData data = _ocrService.parseReceipt(rawText);
-      if (apiKey != null) {
-        final ai = await AiService.parseReceipt(
-          rawText: rawText,
-          apiKey: apiKey,
-          provider: aiProvider,
-          groqModel: groqModel,
+      final imageBytes = await picked.readAsBytes();
+      final data = await AiService.parseReceiptFromImage(
+        imageBytes: imageBytes,
+        apiKey: groqApiKey,
+      );
+      if (data == null) {
+        throw AiException(
+          'The image could not be read. Try a clearer photo.',
         );
-        if (ai != null) data = ai;
       }
       if (!mounted) return;
       setState(() {

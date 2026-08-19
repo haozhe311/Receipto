@@ -1,18 +1,21 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:receipto/services/database_helper.dart';
-import 'package:receipto/services/ocr_service.dart';
+import 'package:receipto/services/receipt_data.dart';
 
 /// Classifies the user's query so only relevant data is injected.
 enum QueryType { yearly, yearlyMonth, monthly, recent, general }
 
-/// Service for calling AI chat APIs (Google Gemini, OpenAI, or Groq).
+/// Service for calling AI APIs: chat (Google Gemini, OpenAI, or Groq — BYOK)
+/// and receipt scanning (Groq Vision only).
 ///
-/// Uses smart context selection: classifies the query with keyword matching
-/// then injects only the data level(s) needed, minimising token usage.
+/// Chat uses smart context selection: classifies the query with keyword
+/// matching then injects only the data level(s) needed, minimising token
+/// usage.
 class AiService {
   AiService._();
 
@@ -22,6 +25,10 @@ class AiService {
       'https://api.openai.com/v1/chat/completions';
   static const String _groqEndpoint =
       'https://api.groq.com/openai/v1/chat/completions';
+
+  /// Vision-capable Groq model used for receipt/screenshot scanning.
+  /// Fixed (not user-selectable) — separate from the text model used for chat.
+  static const String groqVisionModel = 'qwen/qwen3.6-27b';
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -66,19 +73,20 @@ class AiService {
   }
 
   // ---------------------------------------------------------------------------
-  // AI receipt parsing
+  // AI receipt parsing (Groq Vision)
   // ---------------------------------------------------------------------------
 
-  /// Uses the LLM to turn raw receipt OCR text into structured [ReceiptData].
+  /// Sends a receipt/screenshot photo directly to Groq's vision model and
+  /// returns the structured [ReceiptData] it extracts. Returns null on any
+  /// failure (network error, malformed response) — the caller should surface
+  /// that to the user, since there is no on-device OCR fallback.
   ///
-  /// LLMs handle arbitrary receipt layouts far better than regex — including
-  /// items whose name and price sit on separate lines. Returns null on any
-  /// failure so the caller can fall back to the on-device regex parser.
-  static Future<ReceiptData?> parseReceipt({
-    required String rawText,
+  /// Handles both machine-printed receipts (including ones mixing English and
+  /// Chinese) and digital bank-transfer/e-wallet screenshots — the model reads
+  /// the image directly, so no separate OCR/script configuration is needed.
+  static Future<ReceiptData?> parseReceiptFromImage({
+    required Uint8List imageBytes,
     required String apiKey,
-    required String provider,
-    String groqModel = 'llama-3.1-8b-instant',
     List<String> categoryOptions = const [],
   }) async {
     final categoryRule = categoryOptions.isEmpty
@@ -87,57 +95,91 @@ class AiService {
             '${categoryOptions.join(', ')}. Pick the best fit for what was '
             'bought (e.g. a petrol station → Fuel, a restaurant meal → the '
             'closest of Breakfast/Lunch/Dinner, a supermarket → Groceries). ';
+
     final system =
-        'You extract structured data from Malaysian receipt OCR text. '
+        'You extract structured transaction data from a photo of either (a) a '
+        'machine-printed retail receipt — often in Malaysia, sometimes mixing '
+        'English and Chinese text — or (b) a digital bank-transfer / e-wallet '
+        'payment screenshot (e.g. DuitNow, Touch \'n Go, Maybank, GrabPay). '
+        'Read whichever kind of image this is directly; do not guess if the '
+        'text is unclear. '
         'Reply with ONLY minified JSON, no markdown fences and no commentary, '
         'of exactly this shape: '
         '{"merchant":string|null,"date":"YYYY-MM-DD"|null,"total":number|null,'
         '"service_charge_percent":number,"sst_percent":number,'
         '"category":string|null,'
         '"items":[{"name":string,"unit_price":number,"qty":number}]}. '
-        'Guidance: merchant is the shop name near the top. total is the final '
-        'amount payable (grand/nett total). An item name and its price are '
-        'often on separate lines — pair them; unit_price is the per-unit price '
-        'and qty its quantity. Exclude non-item lines (barcodes, subtotals, '
-        'totals, tax, rounding, payment, points, card, phone). Use 0 for a '
-        'missing percentage. All numbers are plain, without "RM". $categoryRule';
-    final user = 'Receipt OCR text:\n$rawText';
+        'Required fields: merchant, date, and total — extract these from '
+        'whichever image type you are given. For a receipt, merchant is the '
+        'shop name near the top and total is the final amount payable '
+        '(grand/nett total). For a bank-transfer screenshot, merchant is the '
+        'recipient/payee name and total is the transferred amount; leave '
+        '"items" empty for screenshots (there are no line items). '
+        'For receipts, an item name and its price are often on separate '
+        'lines — pair them; unit_price is the per-unit price and qty its '
+        'quantity. Exclude non-item lines (barcodes, subtotals, totals, tax, '
+        'rounding, payment, points, card, phone). Use 0 for a missing '
+        'percentage. All numbers are plain, without "RM". $categoryRule';
+
+    final b64 = base64Encode(imageBytes);
+    final body = jsonEncode({
+      'model': groqVisionModel,
+      'messages': [
+        {'role': 'system', 'content': system},
+        {
+          'role': 'user',
+          'content': [
+            {
+              'type': 'text',
+              'text': 'Extract the transaction details from this image.',
+            },
+            {
+              'type': 'image_url',
+              'image_url': {'url': 'data:image/jpeg;base64,$b64'},
+            },
+          ],
+        },
+      ],
+      'response_format': {'type': 'json_object'},
+      'max_tokens': 1200,
+      'temperature': 0.2,
+    });
 
     String raw;
     try {
-      if (provider == 'gemini') {
-        raw = await _callGemini(
-          systemPrompt: system,
-          userMessage: user,
-          apiKey: apiKey,
+      final response = await _postWithRetry(
+        Uri.parse(_groqEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: body,
+      );
+
+      if (response.statusCode != 200) {
+        throw AiException(
+          'Groq API error (${response.statusCode}): '
+          '${_extractErrorMessage(response.body)}',
         );
-      } else if (provider == 'openai') {
-        raw = await _callOpenAiCompatible(
-          endpoint: _openAiEndpoint,
-          model: 'gpt-4o-mini',
-          systemPrompt: system,
-          userMessage: user,
-          apiKey: apiKey,
-          providerName: 'OpenAI',
-        );
-      } else if (provider == 'groq') {
-        raw = await _callOpenAiCompatible(
-          endpoint: _groqEndpoint,
-          model: groqModel,
-          systemPrompt: system,
-          userMessage: user,
-          apiKey: apiKey,
-          providerName: 'Groq',
-        );
-      } else {
-        return null;
       }
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final choices = decoded['choices'] as List?;
+      if (choices == null || choices.isEmpty) {
+        throw AiException('Groq returned no response choices.');
+      }
+      final message = choices.first['message'] as Map<String, dynamic>?;
+      final content = message?['content'] as String?;
+      if (content == null) {
+        throw AiException('Groq response format unexpected.');
+      }
+      raw = content.trim();
     } catch (e) {
-      debugPrint('[AiService] Receipt parse call failed: $e');
+      debugPrint('[AiService] Vision receipt parse call failed: $e');
       return null;
     }
 
-    return _receiptFromResponse(raw, rawText, categoryOptions);
+    return _receiptFromResponse(raw, raw, categoryOptions);
   }
 
   static ReceiptData? _receiptFromResponse(
@@ -185,7 +227,7 @@ class AiService {
           }
         }
       }
-      category ??= OcrService.guessCategory(merchant, items: items);
+      category ??= ReceiptCategoryGuesser.guessCategory(merchant, items: items);
 
       return ReceiptData(
         merchant: (merchant != null && merchant.isNotEmpty) ? merchant : null,
@@ -453,6 +495,52 @@ $injectedDataSection''';
   }
 
   // ---------------------------------------------------------------------------
+  // HTTP with 429 retry
+  // ---------------------------------------------------------------------------
+
+  /// POSTs [body] to [url], retrying with backoff when the response is
+  /// HTTP 429 (Too Many Requests) — vision calls in particular consume a lot
+  /// of tokens and are the most likely to hit a free-tier rate limit.
+  ///
+  /// Honors the provider's `retry-after` header (seconds) when present;
+  /// otherwise backs off exponentially (1s, 2s, 4s, 8s, capped at 16s) with a
+  /// small random jitter to avoid retry storms. Gives up after [maxRetries]
+  /// retries and returns the final (still-429) response so the caller's
+  /// normal status-code handling can surface a clear error.
+  static Future<http.Response> _postWithRetry(
+    Uri url, {
+    required Map<String, String> headers,
+    required String body,
+    int maxRetries = 3,
+  }) async {
+    var attempt = 0;
+    while (true) {
+      final response = await http.post(url, headers: headers, body: body);
+      if (response.statusCode != 429 || attempt >= maxRetries) {
+        return response;
+      }
+      final wait = _retryDelay(response, attempt);
+      debugPrint(
+        '[AiService] 429 rate limited — retrying in ${wait.inMilliseconds}ms '
+        '(attempt ${attempt + 1}/$maxRetries)',
+      );
+      await Future.delayed(wait);
+      attempt++;
+    }
+  }
+
+  static Duration _retryDelay(http.Response response, int attempt) {
+    final retryAfter = response.headers['retry-after'];
+    if (retryAfter != null) {
+      final secs = int.tryParse(retryAfter);
+      if (secs != null && secs >= 0) return Duration(seconds: secs);
+    }
+    final backoffSecs = (1 << attempt).clamp(1, 16); // 1, 2, 4, 8, 16...
+    final jitterMs = Random().nextInt(500);
+    return Duration(seconds: backoffSecs, milliseconds: jitterMs);
+  }
+
+  // ---------------------------------------------------------------------------
   // API callers
   // ---------------------------------------------------------------------------
 
@@ -479,7 +567,7 @@ $injectedDataSection''';
       },
     });
 
-    final response = await http.post(
+    final response = await _postWithRetry(
       url,
       headers: {'Content-Type': 'application/json'},
       body: body,
@@ -524,7 +612,7 @@ $injectedDataSection''';
       'temperature': 0.7,
     });
 
-    final response = await http.post(
+    final response = await _postWithRetry(
       url,
       headers: {
         'Content-Type': 'application/json',

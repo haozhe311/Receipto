@@ -159,6 +159,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: AppTheme.textMuted,
                     ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Receipt scanning always uses Groq (Qwen 3.6 27B Vision), '
+                'regardless of the provider selected above — add a Groq key '
+                'below to scan receipts.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textMuted,
+                    ),
+              ),
 
               // Groq model selector
               if (provider == 'groq') ...[
@@ -221,11 +230,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         color: AppTheme.onGlassFaint,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'No API key saved — chatbot will not work',
-                        style: TextStyle(
-                          color: AppTheme.textMuted,
-                          fontSize: 13,
+                      Expanded(
+                        child: Text(
+                          provider == 'groq'
+                              ? 'No API key saved — chatbot and receipt '
+                                  'scanning will not work'
+                              : 'No API key saved — chatbot will not work',
+                          style: const TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
