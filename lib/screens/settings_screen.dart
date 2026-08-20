@@ -15,9 +15,9 @@ import 'package:receipto/screens/wallets_screen.dart';
 /// Settings screen.
 ///
 /// Section order:
-///   1. AI PROVIDER  — provider toggle + per-provider key list + add-key field
+///   1. AI PROVIDER  — Groq model choice + API key list + add-key field
 ///   2. PREFERENCES  — Manage Categories / Manage Payment Methods nav tiles
-///   3. HOW TO GET AN API KEY — provider instructions
+///   3. HOW TO GET AN API KEY — Groq instructions
 ///   4. ABOUT        — app version
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -31,17 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _obscureNewKey = true;
   String? _keyError;
 
-  static const Map<String, String> _prefixes = {
-    'groq':   'gsk_',
-    'openai': 'sk-',
-    'gemini': 'AIza',
-  };
-
-  static const Map<String, String> _providerLabels = {
-    'groq':   'Groq',
-    'openai': 'OpenAI',
-    'gemini': 'Gemini',
-  };
+  static const String _groqKeyPrefix = 'gsk_';
 
   @override
   void dispose() {
@@ -55,9 +45,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('Settings')),
       body: Consumer<SettingsProvider>(
         builder: (context, settings, _) {
-          final provider = settings.aiProvider;
-          final keys = settings.keysFor(provider);
-          final activeIdx = settings.activeIndexFor(provider);
+          final keys = settings.keys;
+          final activeIdx = settings.activeIndex;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
@@ -120,90 +109,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // ── AI PROVIDER ────────────────────────────────────────────
               const _SectionHeader(title: 'AI Provider'),
               const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'gemini',
-                    label: Text('Gemini'),
-                    icon: Icon(Icons.auto_awesome),
-                  ),
-                  ButtonSegment(
-                    value: 'openai',
-                    label: Text('OpenAI'),
-                    icon: Icon(Icons.psychology),
-                  ),
-                  ButtonSegment(
-                    value: 'groq',
-                    label: Text('Groq (Free & Fast)'),
-                    icon: Icon(Icons.bolt),
+              Row(
+                children: [
+                  const Icon(Icons.bolt, size: 18, color: AppTheme.gold),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Groq — free, works in Malaysia',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.textMuted,
+                        ),
                   ),
                 ],
-                selected: {provider},
-                onSelectionChanged: (selected) {
-                  settings.setAiProvider(selected.first);
-                  // Clear the add-key field when switching providers.
-                  _addKeyController.clear();
-                  setState(() => _obscureNewKey = true);
-                },
-              ),
-              const SizedBox(height: 8),
-              Text(
-                switch (provider) {
-                  'gemini' => 'Using Google Gemini 2.0 Flash-Lite',
-                  'openai' => 'Using OpenAI GPT-4o Mini',
-                  'groq'   =>
-                    'Using Groq (Free, works in Malaysia)',
-                  _        => '',
-                },
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textMuted,
-                    ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Receipt scanning always uses Groq (Qwen 3.6 27B Vision), '
-                'regardless of the provider selected above — add a Groq key '
-                'below to scan receipts.',
+                'Powers both the chatbot and receipt scanning '
+                '(Qwen 3.6 27B Vision).',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.textMuted,
                     ),
               ),
 
-              // Groq model selector
-              if (provider == 'groq') ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Groq model',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textMuted,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: SettingsProvider.groqLlama,
-                      label: Text('Llama 3.1 8B'),
+              // Groq chat model selector
+              const SizedBox(height: 12),
+              Text(
+                'Groq model',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textMuted,
                     ),
-                    ButtonSegment(
-                      value: SettingsProvider.groqGptOss,
-                      label: Text('GPT OSS 120B'),
+              ),
+              const SizedBox(height: 6),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: SettingsProvider.groqGptOss120b,
+                    label: Text('GPT OSS 120B'),
+                  ),
+                  ButtonSegment(
+                    value: SettingsProvider.groqQwen,
+                    label: Text('Qwen 3.6 27B'),
+                  ),
+                  ButtonSegment(
+                    value: SettingsProvider.groqGptOss20b,
+                    label: Text('GPT OSS 20B'),
+                  ),
+                ],
+                selected: {settings.groqModel},
+                onSelectionChanged: (selected) =>
+                    settings.setGroqModel(selected.first),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                switch (settings.groqModel) {
+                  SettingsProvider.groqGptOss120b =>
+                    'GPT OSS 120B — largest, most accurate, a little slower',
+                  SettingsProvider.groqQwen =>
+                    'Qwen 3.6 27B — the same model that powers receipt '
+                        'scanning',
+                  _ /* groqGptOss20b */ =>
+                    'GPT OSS 20B — smaller and faster, lighter weight',
+                },
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textMuted,
                     ),
-                  ],
-                  selected: {settings.groqModel},
-                  onSelectionChanged: (selected) =>
-                      settings.setGroqModel(selected.first),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  settings.groqModel == SettingsProvider.groqGptOss
-                      ? 'GPT OSS 120B — larger, more accurate, a little slower'
-                      : 'Llama 3.1 8B — fastest, lightweight',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textMuted,
-                      ),
-                ),
-              ],
+              ),
               const SizedBox(height: 20),
 
               // ── API KEYS ───────────────────────────────────────────────
@@ -230,13 +199,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         color: AppTheme.onGlassFaint,
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          provider == 'groq'
-                              ? 'No API key saved — chatbot and receipt '
-                                  'scanning will not work'
-                              : 'No API key saved — chatbot will not work',
-                          style: const TextStyle(
+                          'No API key saved — chatbot and receipt scanning '
+                          'will not work',
+                          style: TextStyle(
                             color: AppTheme.textMuted,
                             fontSize: 13,
                           ),
@@ -253,8 +220,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _KeyRow(
                         keyValue: keys[i],
                         isActive: i == activeIdx,
-                        onActivate: () => settings.setActiveKey(provider, i),
-                        onDelete: () => _confirmDelete(context, settings, provider, i),
+                        onActivate: () => settings.setActiveKey(i),
+                        onDelete: () => _confirmDelete(context, settings, i),
                       ),
                     ],
                   ],
@@ -271,13 +238,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 },
                 decoration: InputDecoration(
-                  labelText:
-                      'New ${_providerLabels[provider] ?? 'Provider'} API Key',
-                  hintText: switch (provider) {
-                    'groq'   => 'Paste your Groq key (starts with gsk_)',
-                    'openai' => 'Paste your OpenAI key (starts with sk-)',
-                    _        => 'Paste your Gemini key (starts with AIza)',
-                  },
+                  labelText: 'New Groq API Key',
+                  hintText: 'Paste your Groq key (starts with gsk_)',
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureNewKey
@@ -331,7 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Expanded(
                       child: Text(
                         'API keys are stored on this device and never sent '
-                        'to any server other than the AI provider you selected.',
+                        'to any server other than Groq.',
                         style:
                             TextStyle(fontSize: 13, color: AppTheme.textMuted),
                       ),
@@ -345,30 +307,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const _SectionHeader(title: 'How to get an API key'),
               const SizedBox(height: 8),
               _InstructionCard(
-                icon: Icons.auto_awesome,
-                title: 'Google Gemini',
-                steps: const [
-                  'Go to ai.google.dev',
-                  'Sign in with your Google account',
-                  'Click "Get API key" in Google AI Studio',
-                  'Create a new API key and copy it',
-                ],
-              ),
-              const SizedBox(height: 12),
-              _InstructionCard(
-                icon: Icons.psychology,
-                title: 'OpenAI',
-                steps: const [
-                  'Go to platform.openai.com',
-                  'Sign in or create an account',
-                  'Navigate to API Keys section',
-                  'Create a new secret key and copy it',
-                ],
-              ),
-              const SizedBox(height: 12),
-              _InstructionCard(
                 icon: Icons.bolt,
-                title: 'Groq (Free — Recommended for Malaysia)',
+                title: 'Groq (Free)',
                 steps: const [
                   'Go to console.groq.com',
                   'Sign up for a free account',
@@ -441,7 +381,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _saveNewKey(BuildContext context, SettingsProvider settings) {
     final key = _addKeyController.text.trim();
-    final provider = settings.aiProvider;
 
     if (key.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -453,21 +392,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    // Prefix validation
-    final expectedPrefix = _prefixes[provider] ?? '';
-    if (!key.startsWith(expectedPrefix)) {
-      final label = _providerLabels[provider] ?? provider;
-      // Use "an" before vowels, "a" before consonants.
-      final article = 'aeiouAEIOU'.contains(label[0]) ? 'an' : 'a';
+    if (!key.startsWith(_groqKeyPrefix)) {
       setState(() {
         _keyError =
-            "This doesn't look like $article $label key. "
-            "$label keys start with $expectedPrefix";
+            "This doesn't look like a Groq key. Groq keys start with "
+            '$_groqKeyPrefix';
       });
       return;
     }
 
-    settings.addKey(provider, key);
+    settings.addKey(key);
     _addKeyController.clear();
     setState(() {
       _obscureNewKey = true;
@@ -484,7 +418,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _confirmDelete(
     BuildContext context,
     SettingsProvider settings,
-    String provider,
     int index,
   ) {
     showDialog<void>(
@@ -500,7 +433,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              settings.deleteKey(provider, index);
+              settings.deleteKey(index);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),

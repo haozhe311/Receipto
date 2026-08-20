@@ -11,7 +11,6 @@ class SecureStorageService {
 
   // Storage keys
   static const String keyApiKey = 'ai_api_key';
-  static const String keyAiProvider = 'ai_provider';
 
   /// Writes a value to secure storage.
   static Future<void> write(String key, String value) async {

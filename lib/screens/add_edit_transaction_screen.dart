@@ -371,13 +371,11 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
 
   /// Captures/picks a receipt or bank-transfer-screenshot image and sends it
   /// directly to Groq's vision model to fill the form fields. Requires a Groq
-  /// API key regardless of the app's currently selected AI provider — vision
-  /// scanning always uses Groq (there is no on-device OCR fallback).
+  /// API key (there is no on-device OCR fallback).
   Future<void> _scanReceipt(ImageSource source) async {
-    // Read AI settings before any await gap. Scanning always uses Groq,
-    // independent of the currently selected chat provider.
+    // Read AI settings before any await gap.
     final settings = context.read<SettingsProvider>();
-    final groqApiKey = settings.activeKeyFor('groq');
+    final groqApiKey = settings.apiKey;
 
     // Valid category values the receipt can be classified into: each category's
     // subcategory names, or the category name itself when it has none.

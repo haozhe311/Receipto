@@ -10,8 +10,17 @@ import 'package:receipto/services/receipt_data.dart';
 /// Classifies the user's query so only relevant data is injected.
 enum QueryType { yearly, yearlyMonth, monthly, recent, general }
 
-/// Service for calling AI APIs: chat (Google Gemini, OpenAI, or Groq — BYOK)
-/// and receipt scanning (Groq Vision only).
+/// One prior turn in the conversation, passed into [AiService.chat] so
+/// follow-up questions ("if I cut X, can I still afford it?") can refer back
+/// to something said earlier without repeating it.
+class ChatTurn {
+  final bool isUser;
+  final String content;
+  const ChatTurn({required this.isUser, required this.content});
+}
+
+/// Service for calling Groq's API — chat and receipt-scanning vision alike.
+/// Groq is the app's only AI provider (BYOK).
 ///
 /// Chat uses smart context selection: classifies the query with keyword
 /// matching then injects only the data level(s) needed, minimising token
@@ -19,57 +28,52 @@ enum QueryType { yearly, yearlyMonth, monthly, recent, general }
 class AiService {
   AiService._();
 
-  static const String _geminiEndpoint =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
-  static const String _openAiEndpoint =
-      'https://api.openai.com/v1/chat/completions';
   static const String _groqEndpoint =
       'https://api.groq.com/openai/v1/chat/completions';
 
   /// Vision-capable Groq model used for receipt/screenshot scanning.
-  /// Fixed (not user-selectable) — separate from the text model used for chat.
+  /// Fixed (not user-selectable) — the text chat model is chosen separately
+  /// in Settings.
   static const String groqVisionModel = 'qwen/qwen3.6-27b';
 
   // ---------------------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------------------
 
+  /// Only the most recent turns are sent back to the model — the system
+  /// prompt already re-sends the full financial data dump on every call, so
+  /// an unbounded transcript would grow token usage without much benefit
+  /// (older turns rarely matter once a follow-up has been answered).
+  static const int _maxHistoryTurns = 8; // 4 user/assistant exchanges
+
   static Future<String> chat({
     required String userMessage,
     required String apiKey,
-    required String provider,
-    String groqModel = 'llama-3.1-8b-instant',
+    String groqModel = 'openai/gpt-oss-120b',
+    List<ChatTurn> history = const [],
   }) async {
-    final queryType = _classifyQuery(userMessage);
-    final systemPrompt = await _buildSystemPrompt(userMessage, queryType);
+    final recentHistory = history.length > _maxHistoryTurns
+        ? history.sublist(history.length - _maxHistoryTurns)
+        : history;
 
-    if (provider == 'gemini') {
-      return _callGemini(
-        systemPrompt: systemPrompt,
-        userMessage: userMessage,
-        apiKey: apiKey,
-      );
-    } else if (provider == 'openai') {
-      return _callOpenAiCompatible(
-        endpoint: _openAiEndpoint,
-        model: 'gpt-4o-mini',
-        systemPrompt: systemPrompt,
-        userMessage: userMessage,
-        apiKey: apiKey,
-        providerName: 'OpenAI',
-      );
-    } else if (provider == 'groq') {
-      return _callOpenAiCompatible(
-        endpoint: _groqEndpoint,
-        model: groqModel,
-        systemPrompt: systemPrompt,
-        userMessage: userMessage,
-        apiKey: apiKey,
-        providerName: 'Groq',
-      );
-    } else {
-      throw ArgumentError('Unknown AI provider: $provider');
-    }
+    final queryType = _classifyQuery(userMessage);
+    final historyChars =
+        recentHistory.fold<int>(0, (sum, t) => sum + t.content.length);
+    final systemPrompt = await _buildSystemPrompt(
+      userMessage,
+      queryType,
+      extraChars: historyChars,
+    );
+
+    return _callOpenAiCompatible(
+      endpoint: _groqEndpoint,
+      model: groqModel,
+      systemPrompt: systemPrompt,
+      history: recentHistory,
+      userMessage: userMessage,
+      apiKey: apiKey,
+      providerName: 'Groq',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -257,41 +261,55 @@ class AiService {
   static QueryType _classifyQuery(String query) {
     final q = query.toLowerCase();
 
-    const monthKeywords = [
+    // References an actual specific month (a name, or "this/last month").
+    const namedMonthKeywords = [
       'january', 'february', 'march', 'april', 'may', 'june',
       'july', 'august', 'september', 'october', 'november', 'december',
-      'last month', 'this month', 'bulan', 'monthly',
+      'last month', 'this month', 'next month',
       'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug',
       'sep', 'oct', 'nov', 'dec',
-      'trend', 'compare',
     ];
+    // Hints at wanting monthly-level granularity without naming a specific
+    // month (e.g. "compare" also fires on pure year-vs-year comparisons —
+    // it must NOT by itself force the month-level data path).
+    const genericMonthHintKeywords = ['bulan', 'monthly', 'trend', 'compare'];
 
     const yearKeywords = [
-      'last year', 'this year', 'yearly', 'annual',
-      'per year', 'tahun', '2024', '2025', '2026',
+      'last year', 'this year', 'next year', 'yearly', 'annual',
+      'per year', 'tahun',
     ];
+    // Any bare 4-digit year (2024, 2027, ...) also counts — catches future
+    // years without needing this list hand-updated every year.
+    final hasLiteralYear = RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(q);
 
     const recentKeywords = [
       'recent', 'latest', 'last few', 'today', 'yesterday',
       'this week', 'minggu', 'semalam', 'tadi', 'baru',
     ];
 
-    final hasMonth  = monthKeywords.any((k) => q.contains(k));
-    final hasYear   = yearKeywords.any((k) => q.contains(k));
+    final hasNamedMonth = namedMonthKeywords.any((k) => q.contains(k));
+    final hasMonthHint = hasNamedMonth ||
+        genericMonthHintKeywords.any((k) => q.contains(k));
+    final hasYear   = hasLiteralYear || yearKeywords.any((k) => q.contains(k));
     final hasRecent = recentKeywords.any((k) => q.contains(k));
 
     // Recent-only → recent transactions
-    if (hasRecent && !hasMonth && !hasYear) return QueryType.recent;
+    if (hasRecent && !hasMonthHint && !hasYear) return QueryType.recent;
 
-    // Year + Month combined (e.g. "last year July", "2025 March")
-    // monthly_summary covers all months so it handles both axes.
-    if (hasYear && hasMonth) return QueryType.yearlyMonth;
+    // A specific month named alongside a year (e.g. "last year July",
+    // "January 2025") needs month-level detail within that year.
+    if (hasYear && hasNamedMonth) return QueryType.yearlyMonth;
 
-    // Month only
-    if (hasMonth) return QueryType.monthly;
-
-    // Year only (no month mentioned)
+    // Year-level only — including year + a generic word like "compare"/
+    // "trend" with no month actually named (e.g. "this year vs last year").
+    // yearly_summary covers the FULL history with no size trim, so it's both
+    // the more complete and the cheaper answer — deliberately checked before
+    // the month-hint branch below so a bare "compare" doesn't misroute a
+    // year comparison into the (trimmable) monthly path.
     if (hasYear) return QueryType.yearly;
+
+    // Month-level detail requested without pinning to a specific year.
+    if (hasMonthHint) return QueryType.monthly;
 
     // Default → yearly + last 3 months
     return QueryType.general;
@@ -303,8 +321,9 @@ class AiService {
 
   static Future<String> _buildSystemPrompt(
     String userMessage,
-    QueryType queryType,
-  ) async {
+    QueryType queryType, {
+    int extraChars = 0,
+  }) async {
     final db = DatabaseHelper.instance;
     final now = DateTime.now();
 
@@ -336,53 +355,78 @@ class AiService {
     // ── Fetch only the data level(s) needed ──────────────────────────────────
     String injectedDataSection;
     String dataDescription;
-    int recentLimit = 30;
+    // Matches the "latest 50 transactions" promised in the chatbot's welcome
+    // message. Falls back to 15 below if the resulting prompt is too large.
+    int recentLimit = 50;
 
     switch (queryType) {
       case QueryType.yearly:
-        final yearlyRows = await db.getYearlySummary();
-        injectedDataSection =
-            'yearly_summary:\n${encoder.convert(_groupYearly(yearlyRows))}';
-        dataDescription = 'yearly summaries only';
+        final results = await Future.wait([
+          db.getYearlySummary(),
+          db.getYearlyIncomeTotals(),
+        ]);
+        final yearlyIncome = _toAmountMap(results[1], 'year');
+        injectedDataSection = 'yearly_summary:\n'
+            '${encoder.convert(_groupYearly(results[0], yearlyIncome))}';
+        dataDescription = 'yearly summaries (expenses by category, plus '
+            'income/net per year) only';
 
       case QueryType.yearlyMonth:
         // Month-within-year queries — monthly_summary covers all months.
-        final monthlyRows = await db.getMonthlySummary();
-        injectedDataSection =
-            'monthly_summary:\n${encoder.convert(_groupMonthlyCompact(monthlyRows))}';
-        dataDescription = 'monthly summaries (all months, compact)';
+        final results = await Future.wait([
+          db.getMonthlySummary(),
+          db.getMonthlyIncomeTotals(),
+        ]);
+        final monthlyIncome = _toAmountMap(results[1], 'month');
+        injectedDataSection = 'monthly_summary:\n'
+            '${encoder.convert(_groupMonthlyCompact(results[0], monthlyIncome))}';
+        dataDescription = 'monthly summaries (expenses by category, plus '
+            'income/net per month, all months, compact)';
 
       case QueryType.monthly:
-        final monthlyRows = await db.getMonthlySummary();
-        injectedDataSection =
-            'monthly_summary:\n${encoder.convert(_groupMonthlyCompact(monthlyRows))}';
-        dataDescription = 'monthly summaries (all months, compact)';
+        final results = await Future.wait([
+          db.getMonthlySummary(),
+          db.getMonthlyIncomeTotals(),
+        ]);
+        final monthlyIncome = _toAmountMap(results[1], 'month');
+        injectedDataSection = 'monthly_summary:\n'
+            '${encoder.convert(_groupMonthlyCompact(results[0], monthlyIncome))}';
+        dataDescription = 'monthly summaries (expenses by category, plus '
+            'income/net per month, all months, compact)';
 
       case QueryType.recent:
         final recentTxns = await db.getRecentTransactions(recentLimit);
         injectedDataSection =
             'recent_transactions (last $recentLimit):\n'
             '${encoder.convert(recentTxns.map((t) => t.toCompactMap()).toList())}';
-        dataDescription = 'recent transactions (last $recentLimit)';
+        dataDescription = 'recent transactions (last $recentLimit), '
+            'including any income entries';
 
       case QueryType.general:
         final generalResults = await Future.wait([
           db.getYearlySummary(),
           db.getMonthlySummary(),
+          db.getYearlyIncomeTotals(),
+          db.getMonthlyIncomeTotals(),
         ]);
-        final allMonths   = _groupMonthlyCompact(generalResults[1]);
+        final yearlyIncome  = _toAmountMap(generalResults[2], 'year');
+        final monthlyIncome = _toAmountMap(generalResults[3], 'month');
+        final allMonths =
+            _groupMonthlyCompact(generalResults[1], monthlyIncome);
         final last3Months = allMonths.take(3).toList();
-        injectedDataSection =
-            'yearly_summary:\n${encoder.convert(_groupYearly(generalResults[0]))}\n\n'
-            'recent_months_summary (last 3 months):\n${encoder.convert(last3Months)}';
-        dataDescription = 'yearly summaries and last 3 months summary';
+        injectedDataSection = 'yearly_summary:\n'
+            '${encoder.convert(_groupYearly(generalResults[0], yearlyIncome))}'
+            '\n\nrecent_months_summary (last 3 months):\n'
+            '${encoder.convert(last3Months)}';
+        dataDescription = 'yearly summaries and last 3 months summary '
+            '(expenses by category, plus income/net per period)';
     }
 
     // ── Token guard ───────────────────────────────────────────────────────────
     final promptDraft =
         'data_overview:\n$overviewJson\n\n$injectedDataSection';
     final estimatedTokens =
-        ((promptDraft.length + userMessage.length) / 4).ceil();
+        ((promptDraft.length + userMessage.length + extraChars) / 4).ceil();
 
     if (estimatedTokens > 5000) {
       // First trim: cut recent list to 15 if this is a recent query.
@@ -403,11 +447,17 @@ class AiService {
           '[AiService] Token guard triggered ($estimatedTokens est.). '
           'Trimming monthly_summary to last 12 months.',
         );
-        final monthlyRows = await db.getMonthlySummary();
-        final trimmed = _groupMonthlyCompact(monthlyRows).take(12).toList();
+        final results = await Future.wait([
+          db.getMonthlySummary(),
+          db.getMonthlyIncomeTotals(),
+        ]);
+        final monthlyIncome = _toAmountMap(results[1], 'month');
+        final trimmed =
+            _groupMonthlyCompact(results[0], monthlyIncome).take(12).toList();
         injectedDataSection =
             'monthly_summary (last 12 months):\n${encoder.convert(trimmed)}';
-        dataDescription = 'monthly summaries (last 12 months, compact)';
+        dataDescription = 'monthly summaries (last 12 months, expenses by '
+            'category, plus income/net per month, compact)';
       }
     }
 
@@ -417,15 +467,30 @@ For this query, you have been provided with: $dataDescription.
 
 RULES:
 - Base answers strictly on the provided data only — never hallucinate figures
-- All category and summary spending figures are EXPENSES only; income is tracked separately (see all_time_income in data_overview)
+- Within yearly_summary/monthly_summary, "categories" and "total"/"year_total" are EXPENSES only. Each year/month entry ALSO has "income"/"year_income" and "net"/"year_net" (income minus expenses for that period) — use these for savings-rate, affordability, and "can I afford X by date Y" questions. data_overview's all_time_income is the all-time total across the whole history.
+- For savings-projection questions (e.g. "can I save RM X by [date]?"): compute a monthly net-savings rate from recent income/net figures (prefer the last 3–6 months over very old ones if spending has clearly changed), multiply by the number of months until the target date, and compare to the goal. State the rate and the assumption you used (e.g. "assuming your recent ~RM150/month net continues").
+- Prefer a best-effort estimate using whatever aggregate data IS available over refusing outright — only say a question can't be answered if truly nothing relevant is provided
+- This app does NOT track account balances or savings-goal progress — only income/expense transactions. If asked about current savings/balance, say you can only estimate from cash flow (income minus expenses), not state a real balance as fact
 - When user says "last month", refer to: $lastMonth
 - When user says "last year", refer to: $lastYear
 - When user says "this year", refer to: $currentYear
 - Format currency as RM X.XX
-- Keep responses concise and actionable
 - Use markdown: **bold**, *italic*, bullet lists with -
+- NEVER use LaTeX/math markup (no \\[ \\], \\( \\), \$\$, \\frac, \\text, \\approx, etc.) — this chat cannot render it and it will show as broken text. Write any calculation in plain text/markdown instead, e.g. "10,000 ÷ 321 ≈ 31 months" or "Months needed = 10,000 ÷ 321 ≈ **31**"
 - When user asks about a specific month within a year (e.g. "last year July", "January 2025"), look up that exact month in the monthly_summary using the format YYYY-MM (e.g. "2025-07", "2025-01")
-- If a question cannot be answered from the data provided, say so clearly
+- If a question genuinely cannot be answered from the data provided, say so clearly
+
+BE CONCISE — this is a chat conversation, not a report:
+- Answer ONLY what was asked. A number, a short sentence, or a small table is
+  often the whole answer — stop there.
+- Never restate a table's numbers again as bullet points below it, and vice
+  versa — pick ONE format per fact.
+- Do NOT add unsolicited sections (e.g. "What this means", "Actionable tips",
+  "Recommendations") unless the user's question explicitly asks for advice,
+  tips, or suggestions.
+- Default length: 1–3 sentences, or a table/list of at most ~5 rows. Only go
+  longer if the user's question genuinely requires it (e.g. they asked to
+  "compare every month" or "list all categories").
 
 ---
 
@@ -439,8 +504,12 @@ $injectedDataSection''';
   // Aggregation helpers
   // ---------------------------------------------------------------------------
 
+  /// [incomeByYear] adds an `income`/`net` figure to each year so the model
+  /// can compute a real savings rate — `categories`/`year_total` remain
+  /// EXPENSES only (income has no per-category breakdown in this app).
   static List<Map<String, dynamic>> _groupYearly(
     List<Map<String, dynamic>> rows,
+    Map<String, double> incomeByYear,
   ) {
     final map = <String, Map<String, dynamic>>{};
     for (final row in rows) {
@@ -458,33 +527,59 @@ $injectedDataSection''';
       map[year]!['year_total'] =
           _round((map[year]!['year_total'] as double) + amount);
     }
+    // A year with income but no expenses (rare, but possible) still appears.
+    for (final year in incomeByYear.keys) {
+      map.putIfAbsent(
+        year,
+        () => {'year': year, 'categories': <dynamic>[], 'year_total': 0.0},
+      );
+    }
+    for (final entry in map.values) {
+      final income = incomeByYear[entry['year']] ?? 0.0;
+      entry['year_income'] = _round(income);
+      entry['year_net'] = _round(income - (entry['year_total'] as double));
+    }
     return map.values.toList();
   }
 
   /// Compact monthly grouper: month total + all categories (total > 0) as a
   /// flat object map. Omits count to save tokens.
   /// e.g. "categories": {"Food": 891.23, "Transport": 68.18}
+  ///
+  /// [incomeByMonth] adds `income`/`net` per month (see [_groupYearly] — the
+  /// same expense-only convention applies to `categories`/`total` here).
   static List<Map<String, dynamic>> _groupMonthlyCompact(
     List<Map<String, dynamic>> rows,
+    Map<String, double> incomeByMonth,
   ) {
     final map = <String, Map<String, dynamic>>{};
+    Map<String, dynamic> newMonthEntry(String month) {
+      final parts = month.split('-');
+      final dt = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+      return {
+        'month':      month,
+        'label':      DateFormat('MMMM yyyy').format(dt),
+        'total':      0.0,
+        'categories': <String, double>{},
+      };
+    }
+
     for (final row in rows) {
       final month = row['month'] as String;
-      map.putIfAbsent(month, () {
-        final parts = month.split('-');
-        final dt = DateTime(int.parse(parts[0]), int.parse(parts[1]));
-        return {
-          'month':      month,
-          'label':      DateFormat('MMMM yyyy').format(dt),
-          'total':      0.0,
-          'categories': <String, double>{},
-        };
-      });
+      map.putIfAbsent(month, () => newMonthEntry(month));
       final amount = _round(row['total']);
       if (amount > 0) {
         (map[month]!['categories'] as Map<String, double>)[row['category'] as String] = amount;
       }
       map[month]!['total'] = _round((map[month]!['total'] as double) + amount);
+    }
+    for (final month in incomeByMonth.keys) {
+      map.putIfAbsent(month, () => newMonthEntry(month));
+    }
+    for (final entry in map.values) {
+      final income = incomeByMonth[entry['month']] ?? 0.0;
+      entry['income'] = _round(income);
+      entry['net'] = _round(income - (entry['total'] as double));
     }
     return map.values.toList();
   }
@@ -492,6 +587,15 @@ $injectedDataSection''';
   static double _round(dynamic value) {
     if (value == null) return 0.0;
     return double.parse((value as num).toDouble().toStringAsFixed(2));
+  }
+
+  /// Converts income-totals rows (each `{key: "2026", total: 123.0}`) into a
+  /// lookup map for merging into [_groupYearly]/[_groupMonthlyCompact].
+  static Map<String, double> _toAmountMap(
+    List<Map<String, dynamic>> rows,
+    String key,
+  ) {
+    return {for (final r in rows) r[key] as String: _round(r['total'])};
   }
 
   // ---------------------------------------------------------------------------
@@ -544,54 +648,6 @@ $injectedDataSection''';
   // API callers
   // ---------------------------------------------------------------------------
 
-  static Future<String> _callGemini({
-    required String systemPrompt,
-    required String userMessage,
-    required String apiKey,
-  }) async {
-    final url = Uri.parse('$_geminiEndpoint?key=$apiKey');
-    final fullPrompt = '$systemPrompt\n\nUser question: $userMessage';
-
-    final body = jsonEncode({
-      'contents': [
-        {
-          'role': 'user',
-          'parts': [
-            {'text': fullPrompt},
-          ],
-        },
-      ],
-      'generationConfig': {
-        'temperature': 0.7,
-        'maxOutputTokens': 800,
-      },
-    });
-
-    final response = await _postWithRetry(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    );
-
-    if (response.statusCode != 200) {
-      throw AiException(
-        'Gemini API error (${response.statusCode}): ${_extractErrorMessage(response.body)}',
-      );
-    }
-
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    final candidates = decoded['candidates'] as List?;
-    if (candidates == null || candidates.isEmpty) {
-      throw AiException('Gemini returned no response candidates.');
-    }
-    final content = candidates.first['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List?;
-    if (parts == null || parts.isEmpty) {
-      throw AiException('Gemini response format unexpected.');
-    }
-    return (parts.first['text'] as String).trim();
-  }
-
   static Future<String> _callOpenAiCompatible({
     required String endpoint,
     required String model,
@@ -599,6 +655,7 @@ $injectedDataSection''';
     required String userMessage,
     required String apiKey,
     required String providerName,
+    List<ChatTurn> history = const [],
   }) async {
     final url = Uri.parse(endpoint);
 
@@ -606,9 +663,14 @@ $injectedDataSection''';
       'model': model,
       'messages': [
         {'role': 'system', 'content': systemPrompt},
+        for (final turn in history)
+          {'role': turn.isUser ? 'user' : 'assistant', 'content': turn.content},
         {'role': 'user', 'content': userMessage},
       ],
-      'max_tokens': 800,
+      // Groq's free-tier chat models share an 8k TPM budget; 4000 leaves
+      // headroom for detailed table/bullet answers without starving the
+      // request's own prompt tokens within that budget.
+      'max_tokens': 4000,
       'temperature': 0.7,
     });
 

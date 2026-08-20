@@ -39,7 +39,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         text:
             'Hi! I\'m your Receipto financial assistant.\n\n'
             'I have access to your **full transaction history** — yearly summaries, '
-            'monthly breakdowns, and your latest 50 transactions.\n\n'
+            'monthly breakdowns, and your latest transactions (up to 50).\n\n'
             'Try asking:\n'
             '- "How much did I spend last month?"\n'
             '- "Compare my spending this year vs last year"\n'
@@ -125,8 +125,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       final response = await AiService.chat(
         userMessage: text,
         apiKey: settings.apiKey!,
-        provider: settings.aiProvider,
         groqModel: settings.groqModel,
+        history: _historyForApi(),
       );
 
       setState(() {
@@ -156,6 +156,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
 
     _scrollToBottom();
+  }
+
+  /// Builds the conversation history to send to the API: every prior
+  /// exchange except the static welcome greeting (index 0 — the model never
+  /// said that), error messages (not real replies), and the user message
+  /// just added to [_messages] (that's sent separately as `userMessage`).
+  List<ChatTurn> _historyForApi() {
+    if (_messages.length <= 2) return const [];
+    final prior = _messages.sublist(1, _messages.length - 1);
+    return [
+      for (final m in prior)
+        if (!m.isError) ChatTurn(isUser: m.isUser, content: m.text),
+    ];
   }
 
   void _scrollToBottom() {
@@ -274,6 +287,9 @@ class _ChatBubble extends StatelessWidget {
 /// - **bold**
 /// - *italic*
 /// - Lines starting with "- " or "* " as bullet list items
+/// - "### Heading" (1–6 leading #s) as a bold section heading
+/// - GitHub-style tables (a "| a | b |" row followed by a "|---|---|"
+///   separator row) as a real bordered, horizontally-scrollable [Table]
 /// - Blank lines as paragraph breaks
 class _MarkdownText extends StatelessWidget {
   final String text;
@@ -285,13 +301,50 @@ class _MarkdownText extends StatelessWidget {
   Widget build(BuildContext context) {
     final lines = text.split('\n');
     final widgets = <Widget>[];
+    var i = 0;
 
-    for (int i = 0; i < lines.length; i++) {
+    while (i < lines.length) {
       final line = lines[i];
 
       if (line.trim().isEmpty) {
         // Blank line → small gap between paragraphs
         widgets.add(const SizedBox(height: 6));
+        i++;
+        continue;
+      }
+
+      final headingMatch = RegExp(r'^(#{1,6})\s+(.*)$').firstMatch(line.trim());
+      if (headingMatch != null) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : 8, bottom: 4),
+            child: SelectableText.rich(
+              _buildSpan(headingMatch.group(2)!.trim(), color),
+              style: TextStyle(
+                color: color,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                height: 1.3,
+              ),
+            ),
+          ),
+        );
+        i++;
+        continue;
+      }
+
+      // Table: a "| a | b |" row immediately followed by a "|---|---|" rule.
+      if (_looksLikeTableRow(line) &&
+          i + 1 < lines.length &&
+          _looksLikeTableSeparator(lines[i + 1])) {
+        final tableLines = [line];
+        var j = i + 2;
+        while (j < lines.length && _looksLikeTableRow(lines[j])) {
+          tableLines.add(lines[j]);
+          j++;
+        }
+        widgets.add(_buildTable(tableLines, color));
+        i = j;
         continue;
       }
 
@@ -330,12 +383,84 @@ class _MarkdownText extends StatelessWidget {
           ),
         );
       }
+      i++;
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: widgets,
+    );
+  }
+
+  // ── Table parsing/rendering ─────────────────────────────────────────────
+
+  static bool _looksLikeTableRow(String line) {
+    final t = line.trim();
+    return t.startsWith('|') && t.endsWith('|') && t.length > 1;
+  }
+
+  static bool _looksLikeTableSeparator(String line) {
+    final t = line.trim();
+    return t.startsWith('|') &&
+        t.contains('-') &&
+        RegExp(r'^\|[\s:|-]+\|$').hasMatch(t);
+  }
+
+  static List<String> _splitTableRow(String line) {
+    var t = line.trim();
+    if (t.startsWith('|')) t = t.substring(1);
+    if (t.endsWith('|')) t = t.substring(0, t.length - 1);
+    return t.split('|').map((c) => c.trim()).toList();
+  }
+
+  /// Builds a bordered, horizontally-scrollable table from the header row
+  /// (tableLines[0]) and data rows (the rest) — the separator row itself was
+  /// already consumed by the caller and never appears here.
+  static Widget _buildTable(List<String> tableLines, Color color) {
+    final header = _splitTableRow(tableLines[0]);
+    final rows = tableLines.skip(1).map(_splitTableRow).toList();
+    final columnCount = header.length;
+
+    Widget cell(String value, {required bool bold}) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: SelectableText.rich(
+            _buildSpan(value, color),
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              height: 1.3,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Table(
+          defaultColumnWidth: const IntrinsicColumnWidth(),
+          border: TableBorder.all(
+            color: color.withValues(alpha: 0.25),
+          ),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.08)),
+              children: [
+                for (final h in header) cell(h, bold: true),
+              ],
+            ),
+            for (final row in rows)
+              TableRow(
+                children: [
+                  for (var c = 0; c < columnCount; c++)
+                    cell(c < row.length ? row[c] : '', bold: false),
+                ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 

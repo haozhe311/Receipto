@@ -565,6 +565,34 @@ class DatabaseHelper {
     ''');
   }
 
+  /// Returns total INCOME grouped by year — the income counterpart to
+  /// [getYearlySummary], which only covers expenses. Used so the chatbot can
+  /// compute a real net/savings figure per year instead of only seeing
+  /// expenses.
+  Future<List<Map<String, dynamic>>> getYearlyIncomeTotals() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT strftime('%Y', date) AS year, SUM(amount) AS total
+      FROM $tableTransactions
+      WHERE type = 'income'
+      GROUP BY year
+      ORDER BY year DESC
+    ''');
+  }
+
+  /// Returns total INCOME grouped by month (YYYY-MM) — the income
+  /// counterpart to [getMonthlySummary].
+  Future<List<Map<String, dynamic>>> getMonthlyIncomeTotals() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS total
+      FROM $tableTransactions
+      WHERE type = 'income'
+      GROUP BY month
+      ORDER BY month DESC
+    ''');
+  }
+
   /// Returns a single-row overview of all transaction data.
   /// all_time_total is expenses only; income is reported separately.
   Future<Map<String, dynamic>> getDataOverview() async {

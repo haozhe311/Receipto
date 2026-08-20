@@ -126,10 +126,8 @@ class _SplitScreenState extends State<SplitScreen> {
   }
 
   Future<void> _scan(ImageSource source) async {
-    // Scanning always uses Groq's vision model, independent of the currently
-    // selected chat provider.
     final settings = context.read<SettingsProvider>();
-    final groqApiKey = settings.activeKeyFor('groq');
+    final groqApiKey = settings.apiKey;
 
     final picked = await _imagePicker.pickImage(
       source: source,
