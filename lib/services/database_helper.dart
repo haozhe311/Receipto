@@ -613,6 +613,36 @@ class DatabaseHelper {
   // Budgets
   // ---------------------------------------------------------------------------
 
+  /// Rolls up raw category spending so a budget set on a parent category
+  /// (e.g. "Food") includes spending tagged with its subcategories (Dining,
+  /// Coffee...). [raw] is keyed by whatever the transaction stored — usually
+  /// a subcategory — so a plain parent lookup would otherwise read zero.
+  /// [categoriesJson] is the raw JSON from the 'categories' setting; returns
+  /// [raw] unchanged if it's null. Shared by [BudgetProvider] and
+  /// [InsightService]-style callers that need the same rollup.
+  static Map<String, double> rollUpCategorySpending(
+    Map<String, double> raw,
+    String? categoriesJson,
+  ) {
+    if (categoriesJson == null) return raw;
+    final out = Map<String, double>.from(raw);
+    final list = jsonDecode(categoriesJson) as List<dynamic>;
+    for (final c in list) {
+      final map = c as Map<String, dynamic>;
+      final name = map['name'] as String;
+      // Subcategories are objects {name, iconKey}, but legacy backups stored
+      // them as bare name strings — handle both.
+      final subs = (map['subcategories'] as List<dynamic>?) ?? const [];
+      var total = raw[name] ?? 0;
+      for (final s in subs) {
+        final subName = s is String ? s : (s as Map<String, dynamic>)['name'];
+        total += raw[subName] ?? 0;
+      }
+      out[name] = total;
+    }
+    return out;
+  }
+
   /// Returns all category budgets as a {category: monthlyLimit} map.
   Future<Map<String, double>> getBudgets() async {
     final db = await database;

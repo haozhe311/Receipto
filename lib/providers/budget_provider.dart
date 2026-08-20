@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:receipto/services/database_helper.dart';
 
@@ -66,33 +64,7 @@ class BudgetProvider extends ChangeNotifier {
     final db = DatabaseHelper.instance;
     final raw = await db.getCategorySpendingForMonth(DateTime.now());
     final categoriesJson = await db.getSetting('categories');
-    return _rollUpToParents(raw, categoriesJson);
-  }
-
-  /// Adds each category's subcategory spending into the parent's total. Keeps
-  /// the original per-subcategory entries too (so a budget set directly on a
-  /// subcategory still resolves).
-  static Map<String, double> _rollUpToParents(
-    Map<String, double> raw,
-    String? categoriesJson,
-  ) {
-    if (categoriesJson == null) return raw;
-    final out = Map<String, double>.from(raw);
-    final list = jsonDecode(categoriesJson) as List<dynamic>;
-    for (final c in list) {
-      final map = c as Map<String, dynamic>;
-      final name = map['name'] as String;
-      // Subcategories are objects {name, iconKey}, but legacy backups stored
-      // them as bare name strings — handle both.
-      final subs = (map['subcategories'] as List<dynamic>?) ?? const [];
-      var total = raw[name] ?? 0;
-      for (final s in subs) {
-        final subName = s is String ? s : (s as Map<String, dynamic>)['name'];
-        total += raw[subName] ?? 0;
-      }
-      out[name] = total;
-    }
-    return out;
+    return DatabaseHelper.rollUpCategorySpending(raw, categoriesJson);
   }
 
   Future<void> setBudget(String category, double monthlyLimit) async {

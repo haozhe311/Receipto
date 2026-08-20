@@ -63,7 +63,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       db.getMonthlyTotal(month: _month),
       db.getCategorySpendingForMonth(_month),
       db.getMonthlyTrend(6),
-      InsightService.generate(),
+      InsightService.generate(month: _month),
     ]);
     if (!mounted) return;
     setState(() {
@@ -111,10 +111,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   _monthNavigator(),
                   const SizedBox(height: 16),
                   _cashFlowTiles(),
-                  if (_isCurrentMonth) ...[
-                    const SizedBox(height: 20),
-                    _insightsCard(),
-                  ],
+                  const SizedBox(height: 20),
+                  _insightsCard(),
                   const SizedBox(height: 20),
                   _categoryBreakdown(),
                   const SizedBox(height: 20),
