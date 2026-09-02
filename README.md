@@ -12,6 +12,7 @@
   ![Database](https://img.shields.io/badge/storage-SQLite%20(local%20only)-4E7FE1)
   ![AI](https://img.shields.io/badge/AI-Groq%20(BYOK)-6F5EE0)
   [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+  [![Latest release](https://img.shields.io/github/v/release/haozhe311/Receipto)](https://github.com/haozhe311/Receipto/releases/latest)
 </div>
 
 <br>
@@ -23,6 +24,9 @@ Every feature runs entirely on the device. There is no backend server, no
 account to sign into, and no data ever leaves your phone except the two
 calls you explicitly opt into: your chosen AI provider (Groq, bring your
 own key) and, if you turn it on, Google Drive for backup.
+
+**[⬇ Download the latest APK](https://github.com/haozhe311/Receipto/releases/latest)**
+(Android, `minSdk 23`, sideloaded install, see the release notes for details).
 
 ## Screenshots
 
