@@ -6,6 +6,7 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/services/ai_service.dart';
+import 'package:receipto/widgets/glass.dart';
 
 /// Returned to the caller when the user confirms their share.
 class SplitResult {
@@ -93,33 +94,46 @@ class _SplitScreenState extends State<SplitScreen> {
   void _showScanSourceSheet() {
     showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text('Scan Receipt',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            ),
-            ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.camera_alt)),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                _scan(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.photo_library)),
-              title: const Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                _scan(ImageSource.gallery);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder: (ctx) => FrostedSheetBackground(
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text('Scan Receipt',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.camera_alt)),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _scan(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.photo_library)),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _scan(ImageSource.gallery);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );

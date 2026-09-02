@@ -46,6 +46,14 @@ class AiService {
   /// (older turns rarely matter once a follow-up has been answered).
   static const int _maxHistoryTurns = 8; // 4 user/assistant exchanges
 
+  /// Completion budget per chat call. Groq's free/on-demand tier enforces an
+  /// 8,000 token-per-minute (TPM) cap across the ENTIRE request — prompt and
+  /// completion tokens combined, not prompt alone. The system prompt already
+  /// asks for concise answers (1–3 sentences, small tables), so 2048 leaves
+  /// comfortable room for that while keeping most of the 8k budget free for
+  /// the injected financial data below.
+  static const int _maxCompletionTokens = 2048;
+
   static Future<String> chat({
     required String userMessage,
     required String apiKey,
@@ -423,16 +431,37 @@ class AiService {
     }
 
     // ── Token guard ───────────────────────────────────────────────────────────
+    // Groq's on-demand tier enforces an 8,000 TPM cap across prompt +
+    // completion tokens TOGETHER, so the prompt's own budget is what's left
+    // after reserving _maxCompletionTokens (plus a safety margin, since the
+    // char-based estimate below is approximate). Getting this budget wrong
+    // in either direction is exactly what let requests silently exceed
+    // Groq's real limit despite this guard "passing" — see the 413 errors
+    // this was tuned to catch.
+    const groqTpmBudget = 8000;
+    // Covers two things the char-count below does NOT measure: (a) the
+    // static RULES block returned at the end of this method (~2,900 chars /
+    // ~900 tokens on its own, present in every call but outside
+    // `promptDraft`), and (b) general slack for the char/token ratio being
+    // an approximation rather than the model's real tokenizer.
+    const estimationSafetyMargin = 1500;
+    final promptTokenBudget =
+        groqTpmBudget - _maxCompletionTokens - estimationSafetyMargin;
+
     final promptDraft =
         'data_overview:\n$overviewJson\n\n$injectedDataSection';
+    // 3.3 chars/token, not the more typical ~4 — this payload is dense JSON
+    // (quotes, braces, digits), which tokenizes more heavily than prose, so
+    // a prose-tuned ratio underestimates it.
     final estimatedTokens =
-        ((promptDraft.length + userMessage.length + extraChars) / 4).ceil();
+        ((promptDraft.length + userMessage.length + extraChars) / 3.3).ceil();
 
-    if (estimatedTokens > 5000) {
+    if (estimatedTokens > promptTokenBudget) {
       // First trim: cut recent list to 15 if this is a recent query.
       if (queryType == QueryType.recent) {
         debugPrint(
-          '[AiService] Token guard triggered ($estimatedTokens est.). '
+          '[AiService] Token guard triggered ($estimatedTokens est. > '
+          '$promptTokenBudget budget). '
           'Trimming recent_transactions to 15.',
         );
         recentLimit = 15;
@@ -444,7 +473,8 @@ class AiService {
                  queryType == QueryType.yearlyMonth) {
         // Second trim: cap monthly_summary to last 12 months.
         debugPrint(
-          '[AiService] Token guard triggered ($estimatedTokens est.). '
+          '[AiService] Token guard triggered ($estimatedTokens est. > '
+          '$promptTokenBudget budget). '
           'Trimming monthly_summary to last 12 months.',
         );
         final results = await Future.wait([
@@ -667,10 +697,9 @@ $injectedDataSection''';
           {'role': turn.isUser ? 'user' : 'assistant', 'content': turn.content},
         {'role': 'user', 'content': userMessage},
       ],
-      // Groq's free-tier chat models share an 8k TPM budget; 4000 leaves
-      // headroom for detailed table/bullet answers without starving the
-      // request's own prompt tokens within that budget.
-      'max_tokens': 4000,
+      // See _maxCompletionTokens: this reservation counts against Groq's 8k
+      // TPM budget alongside the prompt itself, so it must stay small.
+      'max_tokens': _maxCompletionTokens,
       'temperature': 0.7,
     });
 

@@ -16,6 +16,7 @@ import 'package:receipto/providers/recurring_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/services/backup_service.dart';
 import 'package:receipto/services/database_helper.dart';
+import 'package:receipto/widgets/glass.dart';
 
 /// Screen for backing up and restoring transactions via Google Drive.
 class BackupScreen extends StatefulWidget {
@@ -288,6 +289,8 @@ class _BackupScreenState extends State<BackupScreen> {
 
       final selected = await showModalBottomSheet<drive.File>(
         context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.2),
         builder: (ctx) => _BackupListSheet(backups: backups),
       );
 
@@ -508,50 +511,61 @@ class _BackupListSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Icon(Icons.cloud_download),
-                const SizedBox(width: 8),
-                Text(
-                  'Select a backup to restore',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
+    return FrostedSheetBackground(
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: backups.length,
-              itemBuilder: (context, index) {
-                final file = backups[index];
-                final modifiedAt = file.modifiedTime != null
-                    ? DateFormat('dd MMM yyyy, h:mm a').format(
-                        file.modifiedTime!.toLocal(),
-                      )
-                    : 'Unknown';
-
-                return ListTile(
-                  leading: const Icon(Icons.description),
-                  title: Text(
-                    file.name ?? 'Unnamed',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_download),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Select a backup to restore',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  subtitle: Text(modifiedAt),
-                  onTap: () => Navigator.of(context).pop(file),
-                );
-              },
+                ],
+              ),
             ),
-          ),
-        ],
+            const Divider(height: 1),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: backups.length,
+                itemBuilder: (context, index) {
+                  final file = backups[index];
+                  final modifiedAt = file.modifiedTime != null
+                      ? DateFormat('dd MMM yyyy, h:mm a').format(
+                          file.modifiedTime!.toLocal(),
+                        )
+                      : 'Unknown';
+
+                  return ListTile(
+                    leading: const Icon(Icons.description),
+                    title: Text(
+                      file.name ?? 'Unnamed',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(modifiedAt),
+                    onTap: () => Navigator.of(context).pop(file),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
