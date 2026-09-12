@@ -5,6 +5,7 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/transaction.dart' as model;
 import 'package:receipto/providers/account_provider.dart';
+import 'package:receipto/providers/goal_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
 import 'package:receipto/services/database_helper.dart';
@@ -101,6 +102,15 @@ class _CategoryTransactionsScreenState
     if (!mounted) return;
     context.read<TransactionProvider>().loadTransactions();
     context.read<AccountProvider>().loadAccounts();
+    // Revert the linked savings goal, if any.
+    final goalId = t.goalId;
+    if (goalId != null) {
+      context.read<GoalProvider>().reverseTransaction(
+            goalId: goalId,
+            amount: t.amount,
+            wasIncome: t.isIncome,
+          );
+    }
   }
 
   @override

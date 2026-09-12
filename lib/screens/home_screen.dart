@@ -6,6 +6,7 @@ import 'package:receipto/constants/category_glyphs.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
+import 'package:receipto/providers/goal_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/add_edit_transaction_screen.dart';
 import 'package:receipto/screens/wallets_screen.dart';
@@ -157,11 +158,27 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        onDelete: () {
-                          if (transaction.id != null) {
-                            provider.deleteTransaction(transaction.id!);
-                            // Refresh account balances / net worth.
-                            context.read<AccountProvider>().loadAccounts();
+                        onDelete: () async {
+                          if (transaction.id == null) return;
+                          // Resolved up front, before the delete completes —
+                          // deleting sets TransactionProvider.isLoading
+                          // briefly, which swaps this whole list (this row
+                          // included) for a loading spinner, unmounting this
+                          // specific row's context. These references stay
+                          // valid regardless, since they don't depend on it.
+                          final accounts = context.read<AccountProvider>();
+                          final goals = context.read<GoalProvider>();
+                          await provider.deleteTransaction(transaction.id!);
+                          // Refresh account balances / net worth.
+                          accounts.loadAccounts();
+                          // Revert the linked savings goal, if any.
+                          final goalId = transaction.goalId;
+                          if (goalId != null) {
+                            goals.reverseTransaction(
+                              goalId: goalId,
+                              amount: transaction.amount,
+                              wasIncome: transaction.isIncome,
+                            );
                           }
                         },
                       );

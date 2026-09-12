@@ -13,7 +13,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const String _dbName = 'receipto.db';
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 7;
 
   // Table and column names
   static const String tableTransactions = 'transactions';
@@ -58,7 +58,8 @@ class DatabaseHelper {
         type TEXT NOT NULL DEFAULT 'expense',
         is_ocr INTEGER NOT NULL DEFAULT 0,
         note TEXT,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        goal_id INTEGER
       )
     ''');
 
@@ -221,6 +222,14 @@ class DatabaseHelper {
       );
       await db.execute(
         'ALTER TABLE $tableSplits ADD COLUMN your_share_settled INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 7) {
+      // v6 → v7: link a transaction back to the savings goal it was a
+      // contribution to or withdrawal from, so deleting it can revert the
+      // goal's saved amount.
+      await db.execute(
+        'ALTER TABLE $tableTransactions ADD COLUMN goal_id INTEGER',
       );
     }
   }
@@ -677,6 +686,13 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getGoals() async {
     final db = await database;
     return await db.query(tableGoals, orderBy: 'created_at DESC');
+  }
+
+  /// Returns a single goal by ID, or null if it no longer exists.
+  Future<Map<String, dynamic>?> getGoal(int id) async {
+    final db = await database;
+    final rows = await db.query(tableGoals, where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : rows.first;
   }
 
   /// Inserts a new goal and returns its row ID.

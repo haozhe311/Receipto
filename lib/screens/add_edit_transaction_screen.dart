@@ -9,6 +9,7 @@ import 'package:receipto/models/account.dart';
 import 'package:receipto/models/transaction.dart' as model;
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
+import 'package:receipto/providers/goal_provider.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
 import 'package:receipto/screens/manage_categories_screen.dart';
@@ -171,7 +172,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
             TextFormField(
               controller: _merchantController,
               decoration: InputDecoration(
-                labelText: _isIncome ? 'Source' : 'Merchant',
+                labelText: _isIncome ? 'Source' : 'Name',
                 hintText: _isIncome
                     ? 'e.g. Salary, Freelance, Allowance'
                     : 'e.g. KFC, Grab, Uniqlo',
@@ -181,7 +182,7 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
                 if (value == null || value.trim().isEmpty) {
                   return _isIncome
                       ? 'Please enter an income source'
-                      : 'Please enter a merchant name';
+                      : 'Please enter a name';
                 }
                 return null;
               },
@@ -287,19 +288,74 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
       _selectedTime.minute,
     );
 
+    var finalAmount = amount;
+    var finalType = _type;
+
+    // Editing a goal-linked transaction's amount or type doesn't just save —
+    // it has to move the same amount on the goal it's tied to, so the two
+    // stay in sync (and clamp together, just like a fresh Add/Withdraw would).
+    final goalId = widget.transaction?.goalId;
+    if (_isEditing && goalId != null) {
+      final result = await context.read<GoalProvider>().syncTransactionEdit(
+            goalId: goalId,
+            oldAmount: widget.transaction!.amount,
+            oldWasIncome: widget.transaction!.isIncome,
+            newAmount: amount,
+            newWasIncome: _isIncome,
+          );
+      finalAmount = result.amount;
+      finalType = result.wasIncome ? 'income' : 'expense';
+      if (!mounted) return;
+
+      // The edit fully cancelled out this transaction's effect on the goal
+      // (e.g. turning a contribution into a withdrawal that exactly wipes it
+      // out) — there's nothing left to record, so remove it instead of
+      // saving a zero-amount transaction.
+      if (finalAmount < 0.005) {
+        await context.read<TransactionProvider>().deleteTransaction(
+              widget.transaction!.id!,
+            );
+        if (mounted) { context.read<AccountProvider>().loadAccounts(); }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "This edit left nothing to record against the goal, so the "
+                'transaction was removed.',
+              ),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+
+      if (mounted && (finalAmount != amount || result.wasIncome != _isIncome)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Adjusted to fit the goal's remaining room."),
+          ),
+        );
+      }
+    }
+
     final transaction = model.Transaction(
       id: widget.transaction?.id,
       date: _selectedDate,
       merchant: merchant,
-      amount: amount,
+      amount: finalAmount,
       category: _selectedCategory,
       paymentMethod: _selectedPaymentMethod,
-      type: _type,
+      type: finalType,
       isOcr: _scannedViaOcr,
       note: note.isNotEmpty ? note : null,
       createdAt: dateTime,
+      // Preserve the link to a savings goal (if any) so deleting this
+      // transaction later still reverts the right goal's saved amount.
+      goalId: goalId,
     );
 
+    if (!mounted) return;
     final provider = context.read<TransactionProvider>();
 
     if (_isEditing) {
@@ -585,11 +641,21 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
           TextButton(
             onPressed: () async {
               final accounts = context.read<AccountProvider>();
+              final goals = context.read<GoalProvider>();
+              final deleted = widget.transaction!;
               Navigator.of(ctx).pop();
               await context
                   .read<TransactionProvider>()
-                  .deleteTransaction(widget.transaction!.id!);
+                  .deleteTransaction(deleted.id!);
               accounts.loadAccounts(); // refresh net worth
+              final goalId = deleted.goalId;
+              if (goalId != null) {
+                goals.reverseTransaction(
+                  goalId: goalId,
+                  amount: deleted.amount,
+                  wasIncome: deleted.isIncome,
+                );
+              }
               if (mounted) { Navigator.of(context).pop(); }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),

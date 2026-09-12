@@ -122,7 +122,7 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
             TextFormField(
               controller: _merchantController,
               decoration: InputDecoration(
-                labelText: _isIncome ? 'Source' : 'Merchant',
+                labelText: _isIncome ? 'Source' : 'Name',
                 hintText: _isIncome ? 'e.g. Salary' : 'e.g. Netflix, Rent',
               ),
               textCapitalization: TextCapitalization.words,

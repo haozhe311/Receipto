@@ -15,6 +15,11 @@ class Transaction {
   final String? note;
   final DateTime createdAt;
 
+  /// ID of the savings goal this transaction is a contribution to or
+  /// withdrawal from, or null for an ordinary transaction. Lets deleting the
+  /// transaction revert the matching amount on the goal.
+  final int? goalId;
+
   Transaction({
     this.id,
     required this.date,
@@ -26,6 +31,7 @@ class Transaction {
     this.isOcr = false,
     this.note,
     DateTime? createdAt,
+    this.goalId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// True when this transaction is income (money in) rather than a spend.
@@ -44,6 +50,7 @@ class Transaction {
       'is_ocr': isOcr ? 1 : 0,
       'note': note,
       'created_at': createdAt.toIso8601String(),
+      'goal_id': goalId,
     };
   }
 
@@ -60,6 +67,7 @@ class Transaction {
       isOcr: (map['is_ocr'] as int) == 1,
       note: map['note'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
+      goalId: map['goal_id'] as int?,
     );
   }
 
@@ -75,6 +83,7 @@ class Transaction {
     bool? isOcr,
     String? note,
     DateTime? createdAt,
+    int? goalId,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -87,6 +96,7 @@ class Transaction {
       isOcr: isOcr ?? this.isOcr,
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
+      goalId: goalId ?? this.goalId,
     );
   }
 

@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/goal.dart';
+import 'package:receipto/models/transaction.dart' as model;
+import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/goal_provider.dart';
+import 'package:receipto/providers/transaction_provider.dart';
 
 /// Savings goals: create targets, track progress, and log contributions.
 class GoalsScreen extends StatefulWidget {
@@ -259,15 +262,78 @@ class _GoalsScreenState extends State<GoalsScreen> {
     Goal goal,
     bool isAdd,
   ) {
+    final accounts = context.read<AccountProvider>().accountNames;
+    if (accounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add an account first.')),
+      );
+      return;
+    }
     showDialog<void>(
       context: context,
       builder: (_) => _ContributeDialog(
         isAdd: isAdd,
         goalName: goal.name,
-        onSubmit: (amount) =>
-            provider.contribute(goal, isAdd ? amount : -amount),
+        accounts: accounts,
+        onSubmit: (amount, account) =>
+            _applyContribution(provider, goal, isAdd, amount, account),
       ),
     );
+  }
+
+  /// Applies a goal contribution/withdrawal and moves the matching amount on
+  /// or off the chosen account, so the goal and the account balance it came
+  /// from (or returns to) stay in sync.
+  ///
+  /// The amount actually applied to the goal can be less than [amount] if the
+  /// contribution would overshoot the target (or the withdrawal would exceed
+  /// what's saved) — [GoalProvider.contribute] clamps the goal in that case,
+  /// and the account is only ever moved by that same clamped amount.
+  Future<void> _applyContribution(
+    GoalProvider provider,
+    Goal goal,
+    bool isAdd,
+    double amount,
+    String account,
+  ) async {
+    final actualDelta =
+        await provider.contribute(goal, isAdd ? amount : -amount);
+    if (actualDelta.abs() < 0.005) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isAdd
+                  ? 'This goal is already fully funded.'
+                  : 'This goal has no savings to withdraw.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final moved = actualDelta.abs();
+    final transaction = model.Transaction(
+      date: DateTime.now(),
+      merchant: 'Savings Goal: ${goal.name}',
+      amount: moved,
+      category: 'Others',
+      paymentMethod: account,
+      type: isAdd ? 'expense' : 'income',
+      note: isAdd
+          ? 'Contribution to "${goal.name}"'
+          : 'Withdrawal from "${goal.name}"',
+      // Links this transaction back to the goal so deleting it later can
+      // revert the amount it contributed or withdrew.
+      goalId: goal.id,
+    );
+
+    if (!mounted) return;
+    await context.read<TransactionProvider>().addTransaction(transaction);
+
+    // Refresh account balances / net worth to reflect this movement.
+    if (mounted) context.read<AccountProvider>().loadAccounts();
   }
 }
 
@@ -393,11 +459,13 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
 class _ContributeDialog extends StatefulWidget {
   final bool isAdd;
   final String goalName;
-  final ValueChanged<double> onSubmit;
+  final List<String> accounts;
+  final void Function(double amount, String account) onSubmit;
 
   const _ContributeDialog({
     required this.isAdd,
     required this.goalName,
+    required this.accounts,
     required this.onSubmit,
   });
 
@@ -407,7 +475,14 @@ class _ContributeDialog extends StatefulWidget {
 
 class _ContributeDialogState extends State<_ContributeDialog> {
   final _controller = TextEditingController();
+  late String _account;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _account = widget.accounts.first;
+  }
 
   @override
   void dispose() {
@@ -422,7 +497,7 @@ class _ContributeDialogState extends State<_ContributeDialog> {
       return;
     }
     final navigator = Navigator.of(context);
-    widget.onSubmit(amount);
+    widget.onSubmit(amount, _account);
     navigator.pop();
   }
 
@@ -430,18 +505,34 @@ class _ContributeDialogState extends State<_ContributeDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(widget.isAdd ? 'Add to Goal' : 'Withdraw from Goal'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          labelText: 'Amount (RM)',
-          prefixText: 'RM ',
-          errorText: _error,
-        ),
-        onChanged: (_) {
-          if (_error != null) setState(() => _error = null);
-        },
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Amount (RM)',
+              prefixText: 'RM ',
+              errorText: _error,
+            ),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _account,
+            decoration: InputDecoration(
+              labelText: widget.isAdd ? 'From account' : 'To account',
+            ),
+            items: widget.accounts
+                .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                .toList(),
+            onChanged: (v) => setState(() => _account = v ?? _account),
+          ),
+        ],
       ),
       actions: [
         TextButton(
