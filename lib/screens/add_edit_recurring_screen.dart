@@ -7,6 +7,7 @@ import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/recurring_provider.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
+import 'package:receipto/widgets/cents_amount_formatter.dart';
 import 'package:receipto/widgets/payment_method_chip.dart';
 
 /// Full-screen form for creating or editing a recurring transaction.
@@ -25,6 +26,7 @@ class AddEditRecurringScreen extends StatefulWidget {
 
 class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _amountFormatter = CentsAmountInputFormatter();
   late final TextEditingController _amountController;
   late final TextEditingController _merchantController;
   late final TextEditingController _noteController;
@@ -108,8 +110,8 @@ class _AddEditRecurringScreenState extends State<AddEditRecurringScreen> {
                 prefixText: 'RM ',
                 hintText: '0.00',
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
+              inputFormatters: [_amountFormatter],
               validator: (v) {
                 final parsed = double.tryParse((v ?? '').trim());
                 if (parsed == null || parsed <= 0) {

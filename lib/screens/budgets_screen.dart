@@ -4,6 +4,7 @@ import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/budget_provider.dart';
 import 'package:receipto/providers/category_provider.dart';
 import 'package:receipto/widgets/budget_widgets.dart';
+import 'package:receipto/widgets/cents_amount_formatter.dart';
 
 /// Lets the user set a monthly spending limit per category and shows
 /// current-month progress against each limit, with over-budget alerts.
@@ -121,6 +122,7 @@ class _SetBudgetDialog extends StatefulWidget {
 }
 
 class _SetBudgetDialogState extends State<_SetBudgetDialog> {
+  final _formatter = CentsAmountInputFormatter();
   late final TextEditingController _controller;
   String? _error;
 
@@ -158,7 +160,8 @@ class _SetBudgetDialogState extends State<_SetBudgetDialog> {
       content: TextField(
         controller: _controller,
         autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        keyboardType: TextInputType.number,
+        inputFormatters: [_formatter],
         decoration: InputDecoration(
           labelText: 'Monthly limit (RM)',
           prefixText: 'RM ',

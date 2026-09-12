@@ -17,6 +17,7 @@ import 'package:receipto/screens/split_screen.dart';
 import 'package:receipto/services/ai_service.dart';
 import 'package:receipto/widgets/app_page_route.dart';
 import 'package:receipto/widgets/category_picker_sheet.dart';
+import 'package:receipto/widgets/cents_amount_formatter.dart';
 import 'package:receipto/widgets/glass.dart';
 
 /// Screen for manually adding a new transaction or editing an existing one.
@@ -35,6 +36,7 @@ class AddEditTransactionScreen extends StatefulWidget {
 
 class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _amountFormatter = CentsAmountInputFormatter();
   late final TextEditingController _amountController;
   late final TextEditingController _merchantController;
   late final TextEditingController _noteController;
@@ -153,8 +155,8 @@ class _AddEditTransactionScreenState extends State<AddEditTransactionScreen> {
                 prefixText: 'RM ',
                 hintText: '0.00',
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
+              inputFormatters: [_amountFormatter],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter an amount';

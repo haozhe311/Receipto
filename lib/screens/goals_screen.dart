@@ -8,6 +8,7 @@ import 'package:receipto/models/transaction.dart' as model;
 import 'package:receipto/providers/account_provider.dart';
 import 'package:receipto/providers/goal_provider.dart';
 import 'package:receipto/providers/transaction_provider.dart';
+import 'package:receipto/widgets/cents_amount_formatter.dart';
 
 /// Savings goals: create targets, track progress, and log contributions.
 class GoalsScreen extends StatefulWidget {
@@ -351,6 +352,7 @@ class _AddGoalDialog extends StatefulWidget {
 class _AddGoalDialogState extends State<_AddGoalDialog> {
   final _nameController = TextEditingController();
   final _targetController = TextEditingController();
+  final _targetFormatter = CentsAmountInputFormatter();
   DateTime? _targetDate;
   String? _error;
 
@@ -407,7 +409,8 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _targetController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
+            inputFormatters: [_targetFormatter],
             decoration: const InputDecoration(
               labelText: 'Target amount (RM)',
               prefixText: 'RM ',
@@ -475,6 +478,7 @@ class _ContributeDialog extends StatefulWidget {
 
 class _ContributeDialogState extends State<_ContributeDialog> {
   final _controller = TextEditingController();
+  final _amountFormatter = CentsAmountInputFormatter();
   late String _account;
   String? _error;
 
@@ -511,7 +515,8 @@ class _ContributeDialogState extends State<_ContributeDialog> {
           TextField(
             controller: _controller,
             autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
+            inputFormatters: [_amountFormatter],
             decoration: InputDecoration(
               labelText: 'Amount (RM)',
               prefixText: 'RM ',

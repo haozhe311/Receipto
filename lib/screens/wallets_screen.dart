@@ -5,6 +5,7 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/models/account.dart';
 import 'package:receipto/providers/account_provider.dart';
+import 'package:receipto/widgets/cents_amount_formatter.dart';
 import 'package:receipto/widgets/glass.dart';
 
 /// Multi-account wallet view: per-account balances, overall net worth, and
@@ -327,6 +328,7 @@ class _AccountDialog extends StatefulWidget {
 }
 
 class _AccountDialogState extends State<_AccountDialog> {
+  final _openingFormatter = CentsAmountInputFormatter();
   late final TextEditingController _nameController;
   late final TextEditingController _openingController;
   late String _type;
@@ -397,7 +399,8 @@ class _AccountDialogState extends State<_AccountDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _openingController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
+            inputFormatters: [_openingFormatter],
             decoration: const InputDecoration(
               labelText: 'Opening balance (RM)',
               prefixText: 'RM ',
@@ -442,6 +445,7 @@ class _TransferDialogState extends State<_TransferDialog> {
   late String _from;
   late String _to;
   final _amountController = TextEditingController();
+  final _amountFormatter = CentsAmountInputFormatter();
   String? _error;
 
   @override
@@ -499,7 +503,8 @@ class _TransferDialogState extends State<_TransferDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
+            inputFormatters: [_amountFormatter],
             decoration: InputDecoration(
               labelText: 'Amount (RM)',
               prefixText: 'RM ',

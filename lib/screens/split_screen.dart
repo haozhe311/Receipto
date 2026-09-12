@@ -6,6 +6,7 @@ import 'package:receipto/constants/app_constants.dart';
 import 'package:receipto/constants/theme.dart';
 import 'package:receipto/providers/settings_provider.dart';
 import 'package:receipto/services/ai_service.dart';
+import 'package:receipto/widgets/cents_amount_formatter.dart';
 import 'package:receipto/widgets/glass.dart';
 
 /// Returned to the caller when the user confirms their share.
@@ -34,6 +35,7 @@ class SplitScreen extends StatefulWidget {
 class _ItemRow {
   final TextEditingController name;
   final TextEditingController price;
+  final CentsAmountInputFormatter priceFormatter = CentsAmountInputFormatter();
   int qty;
 
   _ItemRow({String name = '', String price = ''})
@@ -450,8 +452,8 @@ class _SplitScreenState extends State<SplitScreen> {
                 width: 120,
                 child: TextField(
                   controller: item.price,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [item.priceFormatter],
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     isDense: true,
