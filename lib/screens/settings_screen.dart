@@ -123,7 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 4),
               Text(
                 'Powers both the chatbot and receipt scanning '
-                '(Qwen 3.6 27B Vision).',
+                '(Qwen 3.8 27B Vision).',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.textMuted,
                     ),
@@ -146,7 +146,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   ButtonSegment(
                     value: SettingsProvider.groqQwen,
-                    label: Text('Qwen 3.6 27B'),
+                    label: Text('Qwen 3.8 27B'),
                   ),
                   ButtonSegment(
                     value: SettingsProvider.groqGptOss20b,
@@ -163,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SettingsProvider.groqGptOss120b =>
                     'GPT OSS 120B — largest, most accurate, a little slower',
                   SettingsProvider.groqQwen =>
-                    'Qwen 3.6 27B — the same model that powers receipt '
+                    'Qwen 3.8 27B — the same model that powers receipt '
                         'scanning',
                   _ /* groqGptOss20b */ =>
                     'GPT OSS 20B — smaller and faster, lighter weight',

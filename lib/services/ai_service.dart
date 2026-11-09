@@ -34,7 +34,11 @@ class AiService {
   /// Vision-capable Groq model used for receipt/screenshot scanning.
   /// Fixed (not user-selectable) — the text chat model is chosen separately
   /// in Settings.
-  static const String groqVisionModel = 'qwen/qwen3.6-27b';
+  ///
+  /// Was qwen/qwen3.6-27b, which Groq deprecated on 2026-09-14 in favour of
+  /// this model (Groq auto-routes the old ID for a grace period, but the
+  /// alias isn't guaranteed to stay, so this points at the real one).
+  static const String groqVisionModel = 'qwen/qwen3.8-27b';
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -360,6 +364,12 @@ class AiService {
     final encoder = const JsonEncoder.withIndent('  ');
     final overviewJson = encoder.convert(dataOverview);
 
+    // Goals and account balances are cheap (a handful of rows at most), so
+    // unlike the transaction data below, these are always included regardless
+    // of query type — no need to teach the classifier about them, and it
+    // means a goal- or balance-related follow-up always has what it needs.
+    final goalsAndAccountsSection = await _buildGoalsAndAccountsSection(encoder);
+
     // ── Fetch only the data level(s) needed ──────────────────────────────────
     String injectedDataSection;
     String dataDescription;
@@ -448,8 +458,8 @@ class AiService {
     final promptTokenBudget =
         groqTpmBudget - _maxCompletionTokens - estimationSafetyMargin;
 
-    final promptDraft =
-        'data_overview:\n$overviewJson\n\n$injectedDataSection';
+    final promptDraft = 'data_overview:\n$overviewJson\n\n'
+        '$goalsAndAccountsSection\n\n$injectedDataSection';
     // 3.3 chars/token, not the more typical ~4 — this payload is dense JSON
     // (quotes, braces, digits), which tokenizes more heavily than prose, so
     // a prose-tuned ratio underestimates it.
@@ -493,14 +503,16 @@ class AiService {
 
     return '''You are Receipto's AI Financial Advisor. You help users understand their personal spending habits.
 
-For this query, you have been provided with: $dataDescription.
+For this query, you have been provided with: $dataDescription. You are ALSO always given savings_goals and accounts (see below) regardless of query type — these are small enough to include every time.
 
 RULES:
 - Base answers strictly on the provided data only — never hallucinate figures
 - Within yearly_summary/monthly_summary, "categories" and "total"/"year_total" are EXPENSES only. Each year/month entry ALSO has "income"/"year_income" and "net"/"year_net" (income minus expenses for that period) — use these for savings-rate, affordability, and "can I afford X by date Y" questions. data_overview's all_time_income is the all-time total across the whole history.
 - For savings-projection questions (e.g. "can I save RM X by [date]?"): compute a monthly net-savings rate from recent income/net figures (prefer the last 3–6 months over very old ones if spending has clearly changed), multiply by the number of months until the target date, and compare to the goal. State the rate and the assumption you used (e.g. "assuming your recent ~RM150/month net continues").
 - Prefer a best-effort estimate using whatever aggregate data IS available over refusing outright — only say a question can't be answered if truly nothing relevant is provided
-- This app does NOT track account balances or savings-goal progress — only income/expense transactions. If asked about current savings/balance, say you can only estimate from cash flow (income minus expenses), not state a real balance as fact
+- savings_goals lists each goal's name, target_amount, saved_amount, remaining, and target_date (null if none set) — these are REAL, current figures, not estimates. Use them directly for goal-progress questions, reallocating/redirecting contributions between named goals, or projecting when a goal will be reached (combine with a computed monthly savings rate the same way as a savings-projection question).
+- accounts lists each account's name, type, and current real balance (computed from its opening balance plus all transactions and transfers), plus a net_worth total across all accounts. These are REAL balances, not cash-flow estimates — use them directly for "how much do I have" or net-worth questions.
+- If the user names a goal or account that does not appear in savings_goals/accounts, say so rather than guessing which one they meant.
 - When user says "last month", refer to: $lastMonth
 - When user says "last year", refer to: $lastYear
 - When user says "this year", refer to: $currentYear
@@ -527,7 +539,80 @@ BE CONCISE — this is a chat conversation, not a report:
 data_overview:
 $overviewJson
 
+$goalsAndAccountsSection
+
 $injectedDataSection''';
+  }
+
+  /// Builds the always-included savings_goals + accounts data block.
+  ///
+  /// Both are tiny (a handful of rows at most for a personal-finance app), so
+  /// unlike the transaction summaries above, there's no need to gate this
+  /// behind query classification — it's cheap enough to just always include,
+  /// which also means a goal- or balance-related follow-up question always
+  /// has what it needs, regardless of what the original query was classified
+  /// as.
+  ///
+  /// Account balances are computed the same way [AccountProvider.balanceOf]
+  /// does (opening balance + income - expense on that account, + transfers
+  /// in - transfers out) — duplicated here rather than shared, since this is
+  /// a plain service with no access to Provider state.
+  static Future<String> _buildGoalsAndAccountsSection(
+    JsonEncoder encoder,
+  ) async {
+    final db = DatabaseHelper.instance;
+    final results = await Future.wait([
+      db.getGoals(),
+      db.getAccounts(),
+      db.getTransfers(),
+      db.getPaymentFlow(),
+    ]);
+    final goalRows = results[0] as List<Map<String, dynamic>>;
+    final accountRows = results[1] as List<Map<String, dynamic>>;
+    final transferRows = results[2] as List<Map<String, dynamic>>;
+    final paymentFlow = results[3] as Map<String, Map<String, double>>;
+
+    final goals = goalRows.map((g) {
+      final target = (g['target_amount'] as num).toDouble();
+      final saved = (g['saved_amount'] as num?)?.toDouble() ?? 0;
+      return {
+        'name': g['name'],
+        'target_amount': _round(target),
+        'saved_amount': _round(saved),
+        'remaining': _round((target - saved).clamp(0, double.infinity)),
+        'target_date': g['target_date'],
+      };
+    }).toList();
+
+    final accounts = accountRows.map((a) {
+      final name = a['name'] as String;
+      final opening = (a['opening_balance'] as num?)?.toDouble() ?? 0;
+      final flow = paymentFlow[name];
+      final income = flow?['income'] ?? 0;
+      final expense = flow?['expense'] ?? 0;
+      var transfersIn = 0.0;
+      var transfersOut = 0.0;
+      for (final t in transferRows) {
+        final amount = (t['amount'] as num).toDouble();
+        if (t['to_account'] == name) transfersIn += amount;
+        if (t['from_account'] == name) transfersOut += amount;
+      }
+      final balance = opening + income - expense + transfersIn - transfersOut;
+      return {
+        'name': name,
+        'type': a['type'],
+        'balance': _round(balance),
+      };
+    }).toList();
+
+    final netWorth = accounts.fold<double>(
+      0,
+      (sum, a) => sum + (a['balance'] as double),
+    );
+
+    return 'savings_goals:\n${encoder.convert(goals)}\n\n'
+        'accounts:\n${encoder.convert(accounts)}\n\n'
+        'net_worth: ${_round(netWorth)}';
   }
 
   // ---------------------------------------------------------------------------
